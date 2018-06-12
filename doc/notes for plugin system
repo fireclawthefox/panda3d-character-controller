@@ -1,0 +1,27 @@
+
+
+Fly mode:
+    add request method so plugins won't overwrite requests of other plugins. Requesting plugins should tell the function if they want to set the fly mode active or inactive and a requester ID (probably the id of the plugin)
+
+
+
+What is needed by plugins:
+
+    setting position
+    setting rotations
+    setting animation states
+    setting fly mode
+
+    restrict movements
+        x/y/z and headding (other rotations should never be changed)
+
+    set player heading to face specific directions (e.g. Walls)
+
+    add rays and other collision detection solids and react to them accordingly
+    use existing collision geometry and react to collisions of those
+
+    change the characters speed
+
+    check direction of the player
+
+    register new states
