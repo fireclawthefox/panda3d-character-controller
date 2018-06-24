@@ -66,6 +66,7 @@ class Physics:
 
         self.ignore_step = False
         self.anRemoved = False
+        self.customP = False
 
         self.pre_set_platform = False
 
@@ -188,8 +189,10 @@ class Physics:
         requests fall and landing states"""
         if heading is not None:
             self.mainNode.setH(camera, heading)
-            self.mainNode.setP(0)
+            if not self.customP:
+                self.mainNode.setP(0)
             self.mainNode.setR(0)
+            self.customP = False
         self.mainNode.setFluidPos(self.mainNode, speed)
         if self.state not in self.ignore_step_states:
             if self.doStep():
@@ -234,6 +237,8 @@ class Physics:
 
     def updatePlayerHpr(self, hpr):
         """Update the HPR value of the main player node"""
+        if hpr[1] != 0:
+            self.customP = True
         self.mainNode.setHpr(hpr)
 
     def __getHprFloatingNewPos(self, rotation, parent):

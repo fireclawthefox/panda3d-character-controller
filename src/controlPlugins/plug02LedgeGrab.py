@@ -104,6 +104,12 @@ class Plugin:
         self.ledge_detect_ray = "ledge_grab_ledge_detect_ray-{}".format(self.pluginID)
         self.core.plugin_registerCharacterRayCheck(self.ledge_detect_ray, point_a, point_b)
 
+        # Add a ray checking where the player will stand after pulling up a ledge
+        point_a = (0, -self.core.ledge_forward_pull_up_dist, self.core.ledge_top_check_dist)
+        point_b = (0, -self.core.ledge_forward_pull_up_dist, self.core.ledge_bottom_check_dist)
+        self.ledge_pull_up_pos_ray = "ledge_grab_ledge_pull_up_pos_ray-{}".format(self.pluginID)
+        self.core.plugin_registerCharacterRayCheck(self.ledge_pull_up_pos_ray, point_a, point_b)
+
         # Add a ray checking if there is a grabable ledge to the left
         point_a = (self.core.player_radius, -self.core.ledge_forward_check_dist, self.core.ledge_top_check_dist)
         point_b = (self.core.player_radius, -self.core.ledge_forward_check_dist, self.core.ledge_bottom_check_dist)
@@ -142,6 +148,10 @@ class Plugin:
         #
         # LEDGE GRAB LOGIC
         #
+        if self.core.getCurrentAnim() == self.LEDGE_GRAB_UP:
+            self.core.plugin_requestNewState(None)
+            return True
+
         # this variable can be used to check if the player can move left/right
         # when hanging on a ledge
         self.core.ledge_grab_can_move = False
@@ -150,6 +160,8 @@ class Plugin:
         char_front_collision_entry = self.core.getFirstCollisionEntryInLine(self.forward_ray)
         ledge_collision = self.core.getFirstCollisionEntryInLine(self.ledge_detect_ray)
         ledge_collision_into = self.core.getFirstCollisionIntoNodeInLine(self.ledge_detect_ray)
+        ledge_pull_up_collision = self.core.getFirstCollisionEntryInLine(self.ledge_pull_up_pos_ray)
+
 
         self.do_ledge_grab = False
 
@@ -171,13 +183,13 @@ class Plugin:
                 self.core.toggleFlyMode(False)
                 self.core.plugin_requestNewState(self.core.STATE_FALL)
             elif self.core.do_pull_up \
-            and ledge_collision is not None:
+            and ledge_pull_up_collision is not None:
                 # we want to pull up
                 pos = None
-                if self.core.hasSurfacePoint(ledge_collision):
-                    pos = self.core.getSurfacePoint(ledge_collision, render)
-                elif self.core.hasContactPos(ledge_collision):
-                    pos = self.core.getContactPos(ledge_collision, render)
+                if self.core.hasSurfacePoint(ledge_pull_up_collision):
+                    pos = self.core.getSurfacePoint(ledge_pull_up_collision, render)
+                elif self.core.hasContactPos(ledge_pull_up_collision):
+                    pos = self.core.getContactPos(ledge_pull_up_collision, render)
                 has_enough_space = self.core.checkFutureCharSpace(pos)
                 if pos is not None and has_enough_space:
                     # we want to pull up on a ledge
@@ -292,14 +304,13 @@ class Plugin:
             wall_normal = self.core.getSurfaceNormal(char_front_collision_entry, render)
 
             # set the characters heading
-            zx = math.atan2(wall_normal.getZ(), wall_normal.getX())*180/math.pi
-            zy = math.atan2(wall_normal.getZ(), wall_normal.getY())*180/math.pi
-            zx = abs(zx-90)
-            zy = abs(zy-90)
+            #zx = math.atan2(wall_normal.getZ(), wall_normal.getX())*180/math.pi
+            #zy = math.atan2(wall_normal.getZ(), wall_normal.getY())*180/math.pi
+            #zx = abs(zx-90)
+            #zy = abs(zy-90)
             # face towards the wall
             h = math.atan2(-wall_normal.getX(), wall_normal.getY())*180/math.pi
             self.core.updatePlayerHpr((h, 0, 0))
-
 
     def attachToWall(self, wallCollisionPos, entryLedge):
         if entryLedge is not None:
@@ -335,7 +346,10 @@ class Plugin:
 
     def enterLedgeGrabUp(self):
         #self.core.current_seq = Sequence(
-        self.core.actorInterval(self.LEDGE_GRAB_UP)#.start()
+        self.core.current_animations = [self.LEDGE_GRAB_UP]
+        if not self.core.getCurrentAnim() == self.LEDGE_GRAB_UP:
+            self.core.play(self.LEDGE_GRAB_UP)
+        #self.core.actorInterval(self.LEDGE_GRAB_UP)#.start()
         #    Func(self.core.plugin_requestNewState, self.core.STATE_IDLE),
         #    Func(self.core.enterNewState))
         #self.core.current_seq.start()

@@ -63,8 +63,8 @@ class Config:
         self.anim_climb_exit_up = self.basePath + "Fox-Climb_Exit_Up"
         self.anim_climb_up = self.basePath + "Fox-Climb_Up"
         self.anim_climb_down = self.basePath + "Fox-Climb_Down"
-        self.anim_climb_left = self.basePath + "Fox-Climb_Idle"
-        self.anim_climb_right = self.basePath + "Fox-Climb_Idle"
+        self.anim_climb_left = self.basePath + "Fox-Climb_Left"
+        self.anim_climb_right = self.basePath + "Fox-Climb_Right"
         self.anim_climb_left_up = self.basePath + "Fox-Climb_Up"
         self.anim_climb_left_down = self.basePath + "Fox-Climb_Down"
         self.anim_climb_right_up = self.basePath + "Fox-Climb_Up"
@@ -159,7 +159,7 @@ class Config:
             "jump": KeyboardButton.space(),
                 # extended action keys
             "intel-action": KeyboardButton.asciiKey(b"e"),
-            "action1": KeyboardButton.asciiKey(b"q"),
+            "action1": KeyboardButton.space(),
                 # movement modifier keys
             "walk": KeyboardButton.control(),
             "sprint": KeyboardButton.shift(),
@@ -452,6 +452,7 @@ class Config:
         # this variable determines how far the ledge can be away to grab
         # on to it
         self.ledge_forward_check_dist = self.player_radius * 1.3
+        self.ledge_forward_pull_up_dist = self.player_radius * 1.3
         # this will be the z-position at which the character hangs on
         # the ledge
         self.ledge_z_pos = self.player_height * 1.3
@@ -474,5 +475,5 @@ class Config:
         # CHARACTER CLIMBING
         #
         self.climb_forward_check_dist = 1.25
-        self.climb_sidward_move_speed = 2.5
-        self.climb_vertical_move_speed = 2.5
+        self.climb_sidward_move_speed = 0.8
+        self.climb_vertical_move_speed = 0.8

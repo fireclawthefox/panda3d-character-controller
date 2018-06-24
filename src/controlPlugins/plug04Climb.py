@@ -58,6 +58,11 @@ class Plugin(DirectObject):
         self.up = False
         self.down = False
 
+        self.checkVertPosition = False
+
+        self.climb_area_entry_top = None
+        self.climb_area_entry = None
+
         #
         # SETUP STATES
         #
@@ -133,32 +138,7 @@ class Plugin(DirectObject):
         # LOAD ANIMATIONS
         #
         #TODO: make animations
-        if self.core.plugin_isFirstPersonMode():
-            self.core.loadAnims({
-                self.ANIM_IDLE: self.core.anim_climb_fp,
-                self.ANIM_UP: self.core.anim_climb_up_fp,
-                self.ANIM_DOWN: self.core.anim_climb_down_fp,
-                self.ANIM_LEFT: self.core.anim_climb_left_fp,
-                self.ANIM_RIGHT: self.core.anim_climb_right_fp,
-                self.ANIM_UP_LEFT: self.core.anim_climb_left_up_fp,
-                self.ANIM_DOWN_LEFT: self.core.anim_climb_left_down_fp,
-                self.ANIM_UP_RIGHT: self.core.anim_climb_right_up_fp,
-                self.ANIM_DOWN_RIGHT: self.core.anim_climb_right_down_fp,
-                self.ANIM_EXIT_UP: self.core.anim_climb_exit_up_fp,})
-        else:
-            self.core.loadAnims({
-                self.ANIM_IDLE: self.core.anim_climb,
-                self.ANIM_UP: self.core.anim_climb_up,
-                self.ANIM_DOWN: self.core.anim_climb_down,
-                self.ANIM_LEFT: self.core.anim_climb_left,
-                self.ANIM_RIGHT: self.core.anim_climb_right,
-                self.ANIM_UP_LEFT: self.core.anim_climb_left_up,
-                self.ANIM_DOWN_LEFT: self.core.anim_climb_left_down,
-                self.ANIM_UP_RIGHT: self.core.anim_climb_right_up,
-                self.ANIM_DOWN_RIGHT: self.core.anim_climb_right_down,
-                self.ANIM_EXIT_UP: self.core.anim_climb_exit_up,})
-        # "preload" all animations of the character
-        self.core.bindAllAnims()
+        self.updateAnimations(self.core.plugin_isFirstPersonMode())
 
         #
         # SETUP COLLISION DETECTION
@@ -186,14 +166,14 @@ class Plugin(DirectObject):
         self.core.plugin_registerCharacterRayCheck(self.bottom_ray, point_a, point_b)
 
         # Ray check left to the character
-        point_a = (-self.core.player_radius,0,self.core.player_height/2.0)
-        point_b = (-self.core.player_radius, -self.core.climb_forward_check_dist, self.core.player_height/2.0)
+        point_a = (self.core.player_radius,0,self.core.player_height/2.0)
+        point_b = (self.core.player_radius, -self.core.climb_forward_check_dist, self.core.player_height/2.0)
         self.left_ray = "climb_left_ray-{}".format(self.pluginID)
         self.core.plugin_registerCharacterRayCheck(self.left_ray, point_a, point_b)
 
         # Ray check right the character
-        point_a = (self.core.player_radius,0,self.core.player_height/2.0)
-        point_b = (self.core.player_radius, -self.core.climb_forward_check_dist, self.core.player_height/2.0)
+        point_a = (-self.core.player_radius,0,self.core.player_height/2.0)
+        point_b = (-self.core.player_radius, -self.core.climb_forward_check_dist, self.core.player_height/2.0)
         self.right_ray = "climb_right_ray-{}".format(self.pluginID)
         self.core.plugin_registerCharacterRayCheck(self.right_ray, point_a, point_b)
 
@@ -203,7 +183,32 @@ class Plugin(DirectObject):
         self.active = True
 
     def updateAnimations(self, firstPersonMode):
-        pass
+        if firstPersonMode:
+            self.core.loadAnims({
+                self.ANIM_IDLE: self.core.anim_climb_fp,
+                self.ANIM_UP: self.core.anim_climb_up_fp,
+                self.ANIM_DOWN: self.core.anim_climb_down_fp,
+                self.ANIM_LEFT: self.core.anim_climb_left_fp,
+                self.ANIM_RIGHT: self.core.anim_climb_right_fp,
+                self.ANIM_UP_LEFT: self.core.anim_climb_left_up_fp,
+                self.ANIM_DOWN_LEFT: self.core.anim_climb_left_down_fp,
+                self.ANIM_UP_RIGHT: self.core.anim_climb_right_up_fp,
+                self.ANIM_DOWN_RIGHT: self.core.anim_climb_right_down_fp,
+                self.ANIM_EXIT_UP: self.core.anim_climb_exit_up_fp,})
+        else:
+            self.core.loadAnims({
+                self.ANIM_IDLE: self.core.anim_climb,
+                self.ANIM_UP: self.core.anim_climb_up,
+                self.ANIM_DOWN: self.core.anim_climb_down,
+                self.ANIM_LEFT: self.core.anim_climb_left,
+                self.ANIM_RIGHT: self.core.anim_climb_right,
+                self.ANIM_UP_LEFT: self.core.anim_climb_left_up,
+                self.ANIM_DOWN_LEFT: self.core.anim_climb_left_down,
+                self.ANIM_UP_RIGHT: self.core.anim_climb_right_up,
+                self.ANIM_DOWN_RIGHT: self.core.anim_climb_right_down,
+                self.ANIM_EXIT_UP: self.core.anim_climb_exit_up,})
+        # "preload" all animations of the character
+        self.core.bindAllAnims()
 
     def check_climbing(self, collision_entry):
         entry_np = collision_entry.getIntoNodePath()
@@ -233,13 +238,26 @@ class Plugin(DirectObject):
             entry_normal = self.core.getSurfaceNormal(entry, render)
 
             # set the characters heading
-            zx = math.atan2(entry_normal.getZ(), entry_normal.getX())*180/math.pi
-            zy = math.atan2(entry_normal.getZ(), entry_normal.getY())*180/math.pi
-            zx = abs(zx-90)
-            zy = abs(zy-90)
+            #zx = math.atan2(entry_normal.getZ(), entry_normal.getX())*180/math.pi
+            #zy = math.atan2(entry_normal.getZ(), entry_normal.getY())*180/math.pi
+            #zx = abs(zx-90)
+            #zy = abs(zy-90)
+
             # face towards the wall
             h = math.atan2(-entry_normal.getX(), entry_normal.getY())*180/math.pi
-            self.core.updatePlayerHpr((h, 0, 0))
+
+            # Fit the players pitch to the skew of the area
+            #if self.climb_area_entry_top is not None\
+            #and self.core.hasSurfaceNormal(self.climb_area_entry_top):
+            #    top_entry_normal = self.core.getSurfaceNormal(self.climb_area_entry_top, render)
+            #    entry_normal = top_entry_normal
+            #p = math.atan2(-entry_normal.getX(), entry_normal.getZ())*180/math.pi
+            #p -= 90
+            #p = -p
+
+            p = 0
+
+            self.core.updatePlayerHpr((h, p, 0))
 
     def attachToWall(self, entry):
         if entry is not None \
@@ -260,6 +278,9 @@ class Plugin(DirectObject):
             self.climb_area_entry = None
             #self.core.toggleFlyMode(False)
             return False
+        #entry_top = self.core.getFirstCollisionEntryInLine(self.top_ray)
+        #if entry_top is not None:
+        #    self.climb_area_entry_top = entry_top
 
         # check if conditions are met to start climbing
         if (not self.can_climb or not intel_action):
@@ -297,35 +318,40 @@ class Plugin(DirectObject):
 
         if direction is not None:
             if self.can_move_horizontal:
-                entry_left = self.core.getFirstCollisionEntryInLine(self.left_ray)
-                if entry_left is not None:
-                    if direction.getX() > 0:
+                if direction.getX() < 0:
+                    entry_left = self.core.getFirstCollisionEntryInLine(self.left_ray)
+                    if entry_left is not None \
+                    and "climbable" in entry_left.getIntoNodePath().getNetTag("Type").lower():
                         self.left = True
-                entry_right = self.core.getFirstCollisionEntryInLine(self.right_ray)
-                if entry_right is not None:
-                    if direction.getX() < 0:
+                if direction.getX() > 0:
+                    entry_right = self.core.getFirstCollisionEntryInLine(self.right_ray)
+                    if entry_right is not None \
+                    and "climbable" in entry_right.getIntoNodePath().getNetTag("Type").lower():
                         self.right = True
 
             if self.can_move_vertical:
                 fp_mult = 1
                 if self.core.plugin_isFirstPersonMode():
                     fp_mult = -1
-                entry_top = self.core.getFirstCollisionEntryInLine(self.top_ray)
-                if entry_top is not None:
-                    if direction.getY()*fp_mult < 0:
+
+                if direction.getY()*fp_mult < 0:
+                    entry_top = self.core.getFirstCollisionEntryInLine(self.top_ray)
+                    if entry_top is not None \
+                    and "climbable" in entry_top.getIntoNodePath().getNetTag("Type").lower():
                         self.up = True
-                else:
-                    # exit climb up
-                    player_pos = self.core.plugin_getPos()
-                    pos = player_pos + Point3F(0, self.core.climb_forward_check_dist/2.0, self.core.player_height)
-                    has_enough_space = self.core.checkFutureCharSpace(pos)
-                    if has_enough_space:
-                        # we want to pull up on a ledge
-                        self.core.plugin_requestNewState(self.STATE_CLIMB_EXIT_UP)
-                        self.core.updatePlayerPosFix(pos)
-                entry_bottom = self.core.getFirstCollisionEntryInLine(self.bottom_ray)
-                if entry_bottom is not None:
-                    if direction.getY()*fp_mult > 0:
+                    elif entry_top is not None:
+                        # exit climb up
+                        player_pos = self.core.plugin_getPos()
+                        pos = player_pos + Point3F(0, self.core.climb_forward_check_dist/2.0, self.core.player_height)
+                        has_enough_space = self.core.checkFutureCharSpace(pos)
+                        if has_enough_space:
+                            # we want to pull up on a ledge
+                            self.core.plugin_requestNewState(self.STATE_CLIMB_EXIT_UP)
+                            self.core.updatePlayerPosFix(pos)
+                if direction.getY()*fp_mult > 0:
+                    entry_bottom = self.core.getFirstCollisionEntryInLine(self.bottom_ray)
+                    if entry_bottom is not None \
+                    and "climbable" in entry_bottom.getIntoNodePath().getNetTag("Type").lower():
                         self.down = True
 
             self.core.plugin_requestNewState(None)
@@ -345,6 +371,10 @@ class Plugin(DirectObject):
             else:
                 self.core.plugin_requestNewState(None)
 
+        #if self.checkVertPosition:
+        #    # check if we are closer to the next uper or lower position
+        #    bounds = entry.getIntoNodePath().getBounds()
+
         # skip plugins following this one
         return True
 
@@ -357,9 +387,9 @@ class Plugin(DirectObject):
             # but not rotate the player
             climb_speed = self.core.climb_sidward_move_speed
             if self.left:
-                self.core.update_speed.setX(-climb_speed * self.core.dt)
-            elif self.right:
                 self.core.update_speed.setX(climb_speed * self.core.dt)
+            elif self.right:
+                self.core.update_speed.setX(-climb_speed * self.core.dt)
 
             climb_speed = self.core.climb_vertical_move_speed
             if self.up:
@@ -376,6 +406,10 @@ class Plugin(DirectObject):
     def enterClimb(self):
         self.core.current_animations = [self.ANIM_IDLE]
         self.core.loop(self.ANIM_IDLE)
+        self.checkVertPosition = True
+
+    def exitClimb(self):
+        self.checkVertPosition = False
 
     def enterClimbExitUp(self):
         self.core.current_animations = [self.ANIM_EXIT_UP]
