@@ -437,7 +437,7 @@ class Plugin(DirectObject):
         face normal of the given collision entry"""
         if entry is not None \
         and self.core.hasSurfaceNormal(entry):
-            entry_normal = self.core.getSurfaceNorma
+            entry_normal = self.core.getSurfaceNormal(entry, render)
 
             # face towards the wall
             h = math.atan2(-entry_normal.getX(), entry_normal.getY())*180/math.pi
