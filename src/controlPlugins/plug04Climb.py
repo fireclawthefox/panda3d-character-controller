@@ -33,7 +33,6 @@ class Plugin(DirectObject):
     ANIM_DOWN_RIGHT = "Climb_Down_Right"
     ANIM_EXIT_UP = "Climb_Exit_Up"
 
-
     STATE_CLIMB = "Climb"
     STATE_CLIMB_EXIT_UP = "ClimbExitUp"
     STATE_CLIMB_VERT = "ClimbVertical"
@@ -41,13 +40,13 @@ class Plugin(DirectObject):
     STATE_CLIMB_DIAG_UL_BR = "ClimbDiagonal_ul_br"
     STATE_CLIMB_DIAG_BL_UR = "ClimbDiagonal_bl_ur"
 
-
     def __init__(self, core, pid):
         self.pluginID = pid
         self.core = core
 
         self.can_climb = False
         self.do_climb = False
+        self.requestIdle = False
 
         self.can_move_vertical = False
         self.can_move_horizontal = False
@@ -66,6 +65,16 @@ class Plugin(DirectObject):
         #
         # SETUP STATES
         #
+        # a list of all climb states
+        self.climb_states = [
+            self.STATE_CLIMB,
+            self.STATE_CLIMB_EXIT_UP,
+            self.STATE_CLIMB_VERT,
+            self.STATE_CLIMB_HOR,
+            self.STATE_CLIMB_DIAG_UL_BR,
+            self.STATE_CLIMB_DIAG_BL_UR,
+            ]
+
         # register the wall run states
         self.core.plugin_registerState(
             self.STATE_CLIMB,[
@@ -75,6 +84,13 @@ class Plugin(DirectObject):
                 self.STATE_CLIMB_DIAG_BL_UR]
                 + ["*"] #TODO: is this necessary here?
                 + self.core.jump_and_fall_states,
+            isFlying=True,
+            fromAnyState=True,
+            isPreventRotation=True)
+
+        self.core.plugin_registerState(
+            self.STATE_CLIMB_EXIT_UP,
+            ["*"],
             isFlying=True,
             fromAnyState=True,
             isPreventRotation=True)
@@ -210,64 +226,26 @@ class Plugin(DirectObject):
         # "preload" all animations of the character
         self.core.bindAllAnims()
 
-    def check_climbing(self, collision_entry):
-        entry_np = collision_entry.getIntoNodePath()
-        if "climbable" in entry_np.getNetTag("Type").lower():
-            self.climb_area_entry = collision_entry
-            direction = entry_np.getNetTag("Direction").lower()
-            if direction == "vertical":
-                self.can_move_vertical = True
-                self.can_move_horizontal = False
-            elif direction == "horizontal":
-                self.can_move_vertical = False
-                self.can_move_horizontal = True
-            elif direction == "both":
-                self.can_move_vertical = True
-                self.can_move_horizontal = True
-            else:
-                self.can_move_vertical = True
-                self.can_move_horizontal = False
-            self.can_climb = True
-
-    def useStamina(self):
-        return False
-
-    def faceWall(self, entry):
-        if entry is not None \
-        and self.core.hasSurfaceNormal(entry):
-            entry_normal = self.core.getSurfaceNormal(entry, render)
-
-            # set the characters heading
-            #zx = math.atan2(entry_normal.getZ(), entry_normal.getX())*180/math.pi
-            #zy = math.atan2(entry_normal.getZ(), entry_normal.getY())*180/math.pi
-            #zx = abs(zx-90)
-            #zy = abs(zy-90)
-
-            # face towards the wall
-            h = math.atan2(-entry_normal.getX(), entry_normal.getY())*180/math.pi
-
-            # Fit the players pitch to the skew of the area
-            #if self.climb_area_entry_top is not None\
-            #and self.core.hasSurfaceNormal(self.climb_area_entry_top):
-            #    top_entry_normal = self.core.getSurfaceNormal(self.climb_area_entry_top, render)
-            #    entry_normal = top_entry_normal
-            #p = math.atan2(-entry_normal.getX(), entry_normal.getZ())*180/math.pi
-            #p -= 90
-            #p = -p
-
-            p = 0
-
-            self.core.updatePlayerHpr((h, p, 0))
-
-    def attachToWall(self, entry):
-        if entry is not None \
-        and self.core.hasSurfacePoint(entry):
-            point = self.core.getSurfacePoint(entry, render)
-            self.core.updatePlayerPosFix(point)
-            self.core.updatePlayerPosFix((0, self.core.player_radius, 0), self.core.mainNode)
-
     def action(self, intel_action):
+        # check if we want to request to transition to the idle animation
+        if self.requestIdle:
+            # check for the climb exit up animation state
+            ac = self.core.getAnimControl(self.ANIM_EXIT_UP)
+            if ac.isPlaying():
+                # as long as it's playing we won't transition anywhere
+                # and do as we're still in normal ledge grab mode
+                self.core.plugin_requestNewState(None)
+                return True
+            else:
+                # the climb up is done, now we can transit to the idle
+                # state to continue with normal execution of the character
+                # controller
+                self.core.plugin_requestNewState(self.core.STATE_IDLE)
+                self.requestIdle = False
+                return False
 
+        # check if there is a climbable area in front of us. Use the
+        # center ray for this check
         entry = self.core.getFirstCollisionEntryInLine(self.center_ray)
         if entry is not None:
             self.check_climbing(entry)
@@ -276,11 +254,9 @@ class Plugin(DirectObject):
             self.do_climb = False
             self.can_climb = False
             self.climb_area_entry = None
-            #self.core.toggleFlyMode(False)
+            if self.core.state in self.climb_states:
+                self.core.plugin_requestNewState(self.core.STATE_FALL)
             return False
-        #entry_top = self.core.getFirstCollisionEntryInLine(self.top_ray)
-        #if entry_top is not None:
-        #    self.climb_area_entry_top = entry_top
 
         # check if conditions are met to start climbing
         if (not self.can_climb or not intel_action):
@@ -297,7 +273,7 @@ class Plugin(DirectObject):
             self.can_climb = False
             self.climb_area_entry = None
             self.core.toggleFlyMode(False)
-            self.core.plugin_requestNewState(None)
+            self.core.plugin_requestNewState(self.core.STATE_FALL)
             return False
 
         self.do_climb = True
@@ -317,45 +293,75 @@ class Plugin(DirectObject):
         direction = self.core.plugin_getMoveDirection()
 
         if direction is not None:
+            #
+            # CLIMB MOVE ANY DIRECTION
+            #
+            self.core.plugin_requestNewState(None)
             if self.can_move_horizontal:
+                #
+                # MOVE HORIZONTAL
+                #
                 if direction.getX() < 0:
+                    #
+                    # CHECK CLIMB LEFT
+                    #
+                    # do we have a collision entry to the left of us
                     entry_left = self.core.getFirstCollisionEntryInLine(self.left_ray)
                     if entry_left is not None \
                     and "climbable" in entry_left.getIntoNodePath().getNetTag("Type").lower():
                         self.left = True
                 if direction.getX() > 0:
+                    #
+                    # CHECK CLIMB RIGHT
+                    #
+                    # do we have a collision entry to the right of us
                     entry_right = self.core.getFirstCollisionEntryInLine(self.right_ray)
                     if entry_right is not None \
                     and "climbable" in entry_right.getIntoNodePath().getNetTag("Type").lower():
                         self.right = True
 
+            request_climb_exit_up = False
             if self.can_move_vertical:
+                #
+                # MOVE VERTICAL
+                #
                 fp_mult = 1
                 if self.core.plugin_isFirstPersonMode():
                     fp_mult = -1
 
                 if direction.getY()*fp_mult < 0:
+                    #
+                    # CHECK CLIMB UP
+                    #
                     entry_top = self.core.getFirstCollisionEntryInLine(self.top_ray)
                     if entry_top is not None \
                     and "climbable" in entry_top.getIntoNodePath().getNetTag("Type").lower():
                         self.up = True
-                    elif entry_top is not None:
-                        # exit climb up
+                    elif entry_top is None:
+                        #
+                        # EXIT CLIMB UP
+                        #
                         player_pos = self.core.plugin_getPos()
                         pos = player_pos + Point3F(0, self.core.climb_forward_check_dist/2.0, self.core.player_height)
                         has_enough_space = self.core.checkFutureCharSpace(pos)
                         if has_enough_space:
-                            # we want to pull up on a ledge
-                            self.core.plugin_requestNewState(self.STATE_CLIMB_EXIT_UP)
+                            # we want to climb out on the top end of the
+                            # area
+                            request_climb_exit_up = True
                             self.core.updatePlayerPosFix(pos)
                 if direction.getY()*fp_mult > 0:
+                    #
+                    # CHECK CLIMB DOWN
+                    #
                     entry_bottom = self.core.getFirstCollisionEntryInLine(self.bottom_ray)
                     if entry_bottom is not None \
                     and "climbable" in entry_bottom.getIntoNodePath().getNetTag("Type").lower():
                         self.down = True
 
-            self.core.plugin_requestNewState(None)
-            if (self.left or self.right) and not (self.up or self.down):
+            # check which direction we are moving
+            if request_climb_exit_up:
+                self.core.plugin_requestNewState(self.STATE_CLIMB_EXIT_UP)
+            elif (self.left or self.right) and not (self.up or self.down):
                 self.core.plugin_requestNewState(self.STATE_CLIMB_VERT)
             elif not (self.left or self.right) and (self.up or self.down):
                 self.core.plugin_requestNewState(self.STATE_CLIMB_HOR)
@@ -366,6 +372,9 @@ class Plugin(DirectObject):
             elif self.core.state != self.STATE_CLIMB:
                 self.core.plugin_requestNewState(self.STATE_CLIMB)
         else:
+            #
+            # CLIMB IDLING
+            #
             if self.core.state != self.STATE_CLIMB:
                 self.core.plugin_requestNewState(self.STATE_CLIMB)
             else:
@@ -379,6 +388,7 @@ class Plugin(DirectObject):
         return True
 
     def useStamina(self):
+        # this plugin doesn't use stamina
         return False
 
     def moveRestriction(self):
@@ -401,6 +411,61 @@ class Plugin(DirectObject):
         return self.do_climb
 
     #
+    # CLIMB HELPER FUNCTIONS
+    #
+    def check_climbing(self, collision_entry):
+        entry_np = collision_entry.getIntoNodePath()
+        if "climbable" in entry_np.getNetTag("Type").lower():
+            self.climb_area_entry = collision_entry
+            direction = entry_np.getNetTag("Direction").lower()
+            if direction == "vertical":
+                self.can_move_vertical = True
+                self.can_move_horizontal = False
+            elif direction == "horizontal":
+                self.can_move_vertical = False
+                self.can_move_horizontal = True
+            elif direction == "both":
+                self.can_move_vertical = True
+                self.can_move_horizontal = True
+            else:
+                self.can_move_vertical = True
+                self.can_move_horizontal = False
+            self.can_climb = True
+
+    def faceWall(self, entry):
+        """This function will rotate the player to face towards the
+        face normal of the given collision entry"""
+        if entry is not None \
+        and self.core.hasSurfaceNormal(entry):
+            entry_normal = self.core.getSurfaceNorma
+
+            # face towards the wall
+            h = math.atan2(-entry_normal.getX(), entry_normal.getY())*180/math.pi
+
+            # Fit the players pitch to the skew of the area
+            #TODO: This doesn't really work yet.
+            #if self.climb_area_entry_top is not None\
+            #and self.core.hasSurfaceNormal(self.climb_area_entry_top):
+            #    top_entry_normal = self.core.getSurfaceNormal(self.climb_area_entry_top, render)
+            #    entry_normal = top_entry_normal
+            #p = math.atan2(-entry_normal.getX(), entry_normal.getZ())*180/math.pi
+            #p -= 90
+            #p = -p
+
+            p = 0
+
+            self.core.updatePlayerHpr((h, p, 0))
+
+    def attachToWall(self, entry):
+        """This function will place the player at the position of the
+        given collision entry"""
+        if entry is not None \
+        and self.core.hasSurfacePoint(entry):
+            point = self.core.getSurfacePoint(entry, render)
+            self.core.updatePlayerPosFix(point)
+            self.core.updatePlayerPosFix((0, self.core.player_radius, 0), self.core.mainNode)
+
+    #
     # FSM EXTENSION
     #
     def enterClimb(self):
@@ -413,7 +478,9 @@ class Plugin(DirectObject):
 
     def enterClimbExitUp(self):
         self.core.current_animations = [self.ANIM_EXIT_UP]
-        self.core.actorInterval(self.ANIM_EXIT_UP).start()
+        if not self.core.getCurrentAnim() == self.ANIM_EXIT_UP:
+            self.requestIdle = True
+            self.core.play(self.ANIM_EXIT_UP)
 
     def enterClimbVertical(self):
         if self.left and self.core.getCurrentAnim() != self.ANIM_LEFT:

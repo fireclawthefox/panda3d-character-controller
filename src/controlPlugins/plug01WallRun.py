@@ -157,12 +157,29 @@ class Plugin:
         char_front_collision_entry = self.core.getFirstCollisionEntryInLine(self.forward_ray)
         char_left_collision_entry = self.core.getFirstCollisionEntryInLine(self.left_ray)
         char_right_collision_entry = self.core.getFirstCollisionEntryInLine(self.right_ray)
+
         #
         # WALL RUN LOGIC
         #
+        # get the left/right directions of player movement
+        self.move_left = self.core.plugin_getMoveDirection().getX() < 0
+        self.move_right = self.core.plugin_getMoveDirection().getX() > 0
+
+        # calculate the fall time as wall runs should not be chaingeable
+        # imediately but only after a given time after a jump/fall
         checked_fall_time = True
-        if self.core.state is self.core.STATE_FALL:
+        if self.core.state is self.core.jump_and_fall_states:
             checked_fall_time = self.core.fall_time > self.core.wall_run_min_fall_time
+
+        #
+        # WALL RUN POSSIBLE CHECK
+        #
+        # check if there are any collisions occuring with a wall to the
+        # left, right or front of the player.
+        # Is the intelligent action key pressed
+        # Are we in a state that allows to transition to a wall run
+        # Is the fall time OK
+        # Don't the player hit the jump key
         if (
             char_front_collision_entry is not None \
             or char_left_collision_entry is not None \
@@ -172,16 +189,30 @@ class Plugin:
         and self.core.state in self.wall_run_possible_states \
         and checked_fall_time \
         and not self.core.do_jump:
-            wall_run_possible = False
+            if self.core.state not in self.wall_run_states:
+                # we should be able to normally jump off of a wall whenever
+                # we initiate a wallrun so reset all the jump related
+                # core variables
+                self.core.resetAfterJump()
+
+            # some preparations
             wall_normal = None
-            #TODO: Maybe make the jumps relative to user input when doing a wall run
             prev_jump_direction = self.core.jump_direction
+
+            # Check which direction we have contact to a wall
+            #
+            # FRONT WALL RUN
+            #
             if char_front_collision_entry:
                 # we have a wall in front of us that we can walk up
                 if self.core.hasSurfaceNormal(char_front_collision_entry):
                     wall_normal = self.core.getSurfaceNormal(char_front_collision_entry, render)
                     self.setWallRunDirection(self.WALLRUN_UP)
                     self.core.jump_direction = self.core.wall_run_up_jump_direction
+
+            #
+            # LEFT WALL RUN
+            #
             elif char_left_collision_entry:
                 # we have a wall to our left that we can walk along
                 if self.core.hasSurfaceNormal(char_left_collision_entry):
@@ -189,38 +220,55 @@ class Plugin:
                     wall_normal.setY(-wall_normal.getY())
                     wall_normal.setX(-wall_normal.getX())
                     self.setWallRunDirection(self.WALLRUN_LEFT)
-                    self.core.jump_direction = self.core.wall_run_left_jump_direction
+                    if self.move_right:
+                        self.core.jump_direction = self.core.wall_run_left_jump_direction
 
                     # make sure we're always as close to the wall as possible
+                    # get the walls possition
                     pos = char_left_collision_entry.getSurfacePoint(render)
                     posA = NodePath("WALL-COL-TEMP")
                     posA.setPos(pos)
+                    # get the characters position
                     posB = NodePath("CHAR-TEMP")
-                    posB.setPos(self.core.mainNode.getPos())
+                    posB.setPos(self.core.plugin_getPos())
+                    # calculate the distance between the wall and the character
                     diff = posA.getPos() - posB.getPos()
+                    # cleanup temporary nodes
                     posA.removeNode()
                     posB.removeNode()
-                    newPos = (-(-diff.length() + self.core.player_radius + 0.2), 0, 0)
+                    # calculate the new pos respecting the players radius,
+                    # a small puffer of 0.5 units and the distance of
+                    # the wall to the player
+                    newPos = (-(-diff.length() + self.core.player_radius + 0.5), 0, 0)
+                    # Finally set the player to exactly that position
+                    # as seen from himself
                     self.core.updatePlayerPosFix(newPos, self.core.mainNode)
+
+            #
+            # RIGHT WALL RUN
+            #
             elif char_right_collision_entry:
                 # we have a wall to our right that we can walk along
                 if self.core.hasSurfaceNormal(char_right_collision_entry):
                     wall_normal = self.core.getSurfaceNormal(char_right_collision_entry, render)
                     self.setWallRunDirection(self.WALLRUN_RIGHT)
-                    self.core.jump_direction = self.core.wall_run_right_jump_direction
-
+                    if self.move_left:
+                        self.core.jump_direction = self.core.wall_run_right_jump_direction
                     # make sure we're always as close to the wall as possible
                     pos = char_right_collision_entry.getSurfacePoint(render)
                     posA = NodePath("WALL-COL-TEMP")
                     posA.setPos(pos)
                     posB = NodePath("CHAR-TEMP")
-                    posB.setPos(self.core.mainNode.getPos())
+                    posB.setPos(self.core.plugin_getPos())
                     diff = posA.getPos() - posB.getPos()
                     posA.removeNode()
                     posB.removeNode()
-                    newPos = (-diff.length() + self.core.player_radius + 0.2, 0, 0)
+                    newPos = (-diff.length() + self.core.player_radius + 0.5, 0, 0)
                     self.core.updatePlayerPosFix(newPos, self.core.mainNode)
 
+            #
+            # RECALC HEADING
+            #
             # set the characters heading if aplicable
             if wall_normal is not None:
                 zx = math.atan2(wall_normal.getZ(), wall_normal.getX())*180/math.pi
@@ -236,41 +284,69 @@ class Plugin:
                         h = math.atan2(wall_normal.getY(), wall_normal.getX())*180/math.pi
 
                     if self.core.mainNode.getH() != h:
+                        #
+                        # CAMERA HANDLING
+                        #
+                        # Make sure the camera is following the player
+                        # accordingly.
+                        # therefor we use a temporary node reparented to
+                        # the player which will simply move with it.
                         tempNP = NodePath("tempCamNP")
                         tempNP.reparentTo(self.core.mainNode)
                         tempNP.setPos(camera.getPos(self.core.mainNode))
                         self.core.updatePlayerHpr((h, 0, 0))
+                        # now use the temp nodepaths' position as the new
+                        # camera position
                         self.core.camera_handler.requestReposition(tempNP.getPos(render))
+                        # cleanup
                         tempNP.remove_node()
                     # invalidate other self.core.rotational movements that were set before
                     self.core.rotation = None
-                    wall_run_possible = True
-            if wall_run_possible:
-                self.do_wall_run = True
-                self.core.pre_jump_state = self.core.STATE_RUN
-                if self.core.state not in [self.STATE_WALL_RUN, self.STATE_RUN_TO_WALL_RUN, self.STATE_SPRINT_TO_WALL_RUN, self.core.STATE_JUMP]:
-                    if self.core.state in [self.core.run_states]:
-                        self.core.plugin_requestNewState(self.STATE_RUN_TO_WALL_RUN)
-                    elif self.core.state in  [self.core.sprint_states]:
-                        self.core.plugin_requestNewState(self.STATE_SPRINT_TO_WALL_RUN)
-                    else:
-                        self.core.plugin_requestNewState(self.STATE_WALL_RUN)
-                    self.core.jump_strength = self.core.wall_run_off_jump_strength
+
+            #
+            # FINAL STUFF
+            #
+            self.do_wall_run = True
+            self.core.pre_jump_state = self.core.STATE_RUN
+            if self.core.state not in [self.STATE_WALL_RUN, self.STATE_RUN_TO_WALL_RUN, self.STATE_SPRINT_TO_WALL_RUN]:
+                # dependent on our current state we start with a different
+                # transition to the wall run
+                if self.core.state in [self.core.run_states]:
+                    #
+                    # RUN TO WALL RUN
+                    #
+                    self.core.plugin_requestNewState(self.STATE_RUN_TO_WALL_RUN)
+                elif self.core.state in  [self.core.sprint_states]:
+                    #
+                    # SPRINT TO WALL RUN
+                    #
+                    self.core.plugin_requestNewState(self.STATE_SPRINT_TO_WALL_RUN)
+                else:
+                    #
+                    # ANYTHING ELSE TO WALL RUN
+                    #
+                    self.core.plugin_requestNewState(self.STATE_WALL_RUN)
+                self.core.jump_strength = self.core.wall_run_off_jump_strength
             else:
-                vec = self.core.plugin_getMoveDirection()
-                vec.setZ(0)
-                self.core.plugin_setMoveDirection(vec)
-                self.core.jump_direction = prev_jump_direction
-        else:
-            vec = self.core.plugin_getMoveDirection()
-            vec.setZ(0)
-            self.core.plugin_setMoveDirection(vec)
-            self.core.jump_strength = self.core.jump_strength_default
-            if self.core.state in self.wall_run_states:
-                self.core.plugin_requestNewState(self.core.STATE_RUN)
+                # We don't need to transition to any other animation
+                self.core.plugin_requestNewState(None)
+
+        # check wether if we are in a wall run state but shouldn't
+        # actually be in it anymore
+        if ((
+            char_front_collision_entry is None \
+            and char_left_collision_entry is None \
+            and char_right_collision_entry is None \
+        ) or not intel_action) \
+        and self.core.state in self.wall_run_states:
+            # request the Fall animation state
+            self.core.plugin_requestNewState(self.core.STATE_FALL)
+
+        # return False as we don't want other plugins to be skiped
         return False
 
     def useStamina(self):
+        # this plugin doesn't use stamina
         return False
 
     def moveRestriction(self):

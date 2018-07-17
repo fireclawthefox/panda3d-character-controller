@@ -4,7 +4,7 @@
 #
 # PANDA3D ENGINE IMPORTS
 #
-from panda3d.core import PandaNode
+from panda3d.core import PandaNode, NodePath
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -82,10 +82,13 @@ class CameraThirdPerson:
         the defined model and will correct the position if the cam is to close
         or to far away"""
 
+        #TODO: Change everything to use the newCamPos and at the end set the camera pos accordingly!
+        #newCamPos = NodePath()
+        #newCamPos.setPos(camera.getPos())
         if self.external_cam_pos_request is not None:
+            #newCamPos.setPos(self.external_cam_pos_request)
             camera.setPos(self.external_cam_pos_request)
             self.external_cam_pos_request = None
-
 
         for self.parent.plugin in self.parent.inputPlugins:
             if self.parent.plugin.active:

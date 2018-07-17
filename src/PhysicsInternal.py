@@ -507,7 +507,7 @@ class Physics:
 
         dt = globalClock.getDt()
         jumpVec = Vec3(
-            0,#jump_direction.getX()*dt,
+            jump_direction.getX()*dt,
             -((forwardSpeed*self.jump_forward_force_mult))*dt,
             (self.phys_jump_strength+jump_direction.getZ())*dt)
         jumpVec *= self.jump_strength

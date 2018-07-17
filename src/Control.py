@@ -64,6 +64,22 @@ class Control:
             self.current_accleration = 0.0
             self.current_max_accleration = 0.0
 
+    def resetAfterJump(self):
+        self.isAirborn = False
+        self.fall_time = 0.0
+        self.cur_jump_press_time = 0.0
+        self.is_first_jump = True
+        if self.state in self.on_ground_states:
+            self.land()
+        if self.wasJumping:
+            self.wasJumping = False
+            if self.move_key_pressed:
+                self.current_accleration = self.pre_jump_accleration * self.jump_accleration_multiplier
+            else:
+                self.current_accleration = 0.0
+        self.jump_strength = self.jump_strength_default
+        self.jump_direction = Vec3(0, 0, 0)
+
     def move(self, task):
         """The main task for updating the players position according
         to the keys pressed by the user"""
@@ -100,7 +116,6 @@ class Control:
                 self.do_jump = plugin.getJumpState()
                 self.do_intel_action = plugin.getIntelActionState()
                 self.do_pull_up = plugin.getAction1State()
-        self.jump_direction = Vec3(0, 0, 0)
 
         #
         # CHECK IF PLAYER IS STILL AIRBORN
@@ -109,7 +124,8 @@ class Control:
         and self.state not in self.flying_states:
             # We are not on the ground and hence can't move
             self.isAirborn = True
-            self.fall_time += self.dt
+            if self.state in self.jump_and_fall_states:
+                self.fall_time += self.dt
             # check if the player let go the jump key or the max jump
             # time has been reached
             if self.fall_time > self.start_fall_time \
@@ -119,18 +135,7 @@ class Control:
             self.cur_jump_press_time += self.dt
         else:
             # we probably landed somewhere
-            self.isAirborn = False
-            self.fall_time = 0.0
-            self.cur_jump_press_time = 0.0
-            self.is_first_jump = True
-            if self.state in self.on_ground_states:
-                self.land()
-            if self.wasJumping:
-                self.wasJumping = False
-                if self.move_key_pressed:
-                    self.current_accleration = self.pre_jump_accleration * self.jump_accleration_multiplier
-                else:
-                    self.current_accleration = 0.0
+            self.resetAfterJump()
 
         #
         # PLAYER MOVEMENT

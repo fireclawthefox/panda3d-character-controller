@@ -34,6 +34,7 @@ class Plugin:
         self.pluginID = pid
         self.core = core
         self.do_ledge_grab = False
+        self.requestIdle = False
 
         #
         # SETUP STATES
@@ -143,18 +144,31 @@ class Plugin:
         # "preload" all animations of the character
         self.core.bindAllAnims()
 
-
     def action(self, intel_action):
         #
         # LEDGE GRAB LOGIC
         #
-        if self.core.getCurrentAnim() == self.LEDGE_GRAB_UP:
-            self.core.plugin_requestNewState(None)
-            return True
+        # check if we want to request to transition to the idle animation
+        if self.requestIdle:
+            # check for the ledge grab up animation state
+            ac = self.core.getAnimControl(self.LEDGE_GRAB_UP)
+            if ac.isPlaying():
+                # as long as it's playing we won't transition anywhere
+                # and do as we're still in normal ledge grab mode
+                self.core.plugin_requestNewState(None)
+                return True
+            else:
+                # the pulling up is done, now we can transit to the idle
+                # state to continue with normal execution of the character
+                # controller
+                self.core.plugin_requestNewState(self.core.STATE_IDLE)
+                self.requestIdle = False
+                return False
 
         # this variable can be used to check if the player can move left/right
         # when hanging on a ledge
         self.core.ledge_grab_can_move = False
+
         # Wall checks to the front, left and right side of the player
         char_front_collision = self.core.getFirstCollisionInLine(self.forward_ray)
         char_front_collision_entry = self.core.getFirstCollisionEntryInLine(self.forward_ray)
@@ -162,10 +176,16 @@ class Plugin:
         ledge_collision_into = self.core.getFirstCollisionIntoNodeInLine(self.ledge_detect_ray)
         ledge_pull_up_collision = self.core.getFirstCollisionEntryInLine(self.ledge_pull_up_pos_ray)
 
-
+        # this variable is to determine if we do a ledge grab and will
+        # be returned at the end of this function
         self.do_ledge_grab = False
 
-        let_go = self.core.plugin_getMoveDirection().getY() > 0
+        # check for movement directions and keys
+        let_go = False
+        if self.core.plugin_isFirstPersonMode():
+            let_go = self.core.plugin_getMoveDirection().getY() < 0
+        else:
+            let_go = self.core.plugin_getMoveDirection().getY() > 0
         self.move_left = self.core.plugin_getMoveDirection().getX() < 0
         self.move_right = self.core.plugin_getMoveDirection().getX() > 0
 
@@ -176,27 +196,37 @@ class Plugin:
             # LET GO / PULL UP
             #
             # We are currently in ledge grab mode
-            self.core.rotation = None
             self.do_ledge_grab = True
+            self.core.plugin_requestNewState(None)
             if let_go:
-                # let go from ledge grab
+                #
+                # LET GO
+                #
                 self.core.toggleFlyMode(False)
                 self.core.plugin_requestNewState(self.core.STATE_FALL)
+                self.do_ledge_grab = False
             elif self.core.do_pull_up \
             and ledge_pull_up_collision is not None:
-                # we want to pull up
+                #
+                # PULL UP
+                #
+                # first get the position where the player should be standing
+                # in the end
                 pos = None
                 if self.core.hasSurfacePoint(ledge_pull_up_collision):
                     pos = self.core.getSurfacePoint(ledge_pull_up_collision, render)
                 elif self.core.hasContactPos(ledge_pull_up_collision):
                     pos = self.core.getContactPos(ledge_pull_up_collision, render)
+
+                # check weather the player would actually have enough
+                # space to stand there and only continue if so
                 has_enough_space = self.core.checkFutureCharSpace(pos)
                 if pos is not None and has_enough_space:
                     # we want to pull up on a ledge
                     self.core.plugin_requestNewState(self.STATE_LEDGE_GRAB_UP)
+                    pos.setZ(pos.getZ() + 0.05)
                     self.core.updatePlayerPosFix(pos)
-                else:
-                    self.core.plugin_requestNewState(None)
+
         elif self.core.state in self.ledge_grab_states \
         and (self.move_left \
         or self.move_right):
@@ -204,9 +234,9 @@ class Plugin:
             # LEFT / RIGHT
             #
             self.do_ledge_grab = True
-            self.core.rotation = None
             ledge_move_collision = None
             direction = None
+            # check which direction we are moving
             if self.move_left:
                 ledge_move_collision = self.core.getFirstCollisionEntryInLine(self.ledge_detect_ray_l)
                 direction = "left"
@@ -214,6 +244,7 @@ class Plugin:
                 ledge_move_collision = self.core.getFirstCollisionEntryInLine(self.ledge_detect_ray_r)
                 direction = "right"
             self.core.plugin_requestNewState(None)
+            # check if we actually are able to move
             if ledge_move_collision is not None:
                 self.core.ledge_grab_can_move = True
                 self.core.setCurrentAnimsPlayRate(1.0)
@@ -224,31 +255,39 @@ class Plugin:
                     if self.core.state != self.STATE_LEDGE_GRAB_RIGHT:
                         self.core.plugin_requestNewState(self.STATE_LEDGE_GRAB_RIGHT)
             elif self.core.state != self.STATE_LEDGE_GRAB:
+                # make sure the "idle" ledge grab animation playes if
+                # we are in ledge grab mode but can't move
                 self.core.plugin_requestNewState(self.STATE_LEDGE_GRAB)
 
             if ledge_move_collision is None:
+                # we can't move, so make sure we don't have any move vars set
                 self.move_left = False
                 self.move_right = False
 
+            # check if the object we are attached to is a movable object
             self.core.checkFloatingPlatform(ledge_collision_into)
+            # make sure we are looking towards the object
             self.faceWall(char_front_collision_entry)
+            # make sure we are close to the object we are attached to
             self.attachToWall(char_front_collision, ledge_collision)
 
         elif self.core.state in self.ledge_grab_states \
+        and not self.core.state == self.STATE_LEDGE_GRAB_UP \
         and ledge_collision is not None:
             #
             # STAY IN LEDGE GRAB
             #
-            self.core.rotation = None
-            self.core.toggleFlyMode(True)
             self.do_ledge_grab = True
+
+            self.core.plugin_requestNewState(None)
             if self.core.state != self.STATE_LEDGE_GRAB:
                 self.core.plugin_requestNewState(self.STATE_LEDGE_GRAB)
-            else:
-                self.core.plugin_requestNewState(None)
 
+            # check if the object we are attached to is a movable object
             self.core.checkFloatingPlatform(ledge_collision_into)
+            # make sure we are looking towards the object
             self.faceWall(char_front_collision_entry)
+            # make sure we are close to the object we are attached to
             self.attachToWall(char_front_collision, ledge_collision)
 
         elif ledge_collision is not None \
@@ -263,22 +302,23 @@ class Plugin:
                 ledge_normal = self.core.getSurfaceNormal(ledge_collision, render)
             if ledge_normal is not None:
                 if ledge_normal.getZ() > 0:
-                    self.core.rotation = None
-                    self.core.toggleFlyMode(True)
-                    self.do_ledge_grab = True
 
                     self.core.checkFloatingPlatform(ledge_collision_into)
                     self.faceWall(char_front_collision_entry)
                     self.attachToWall(char_front_collision, ledge_collision)
 
                     self.core.plugin_requestNewState(self.STATE_LEDGE_GRAB)
+                    self.do_ledge_grab = True
         if self.do_ledge_grab:
+            self.core.toggleFlyMode(True)
+            self.core.rotation = None
             vec = self.core.plugin_getMoveDirection()
             vec.setY(0)
             self.core.plugin_setMoveDirection(vec)
         return self.do_ledge_grab
 
     def useStamina(self):
+        # this plugin doesn't use stamina
         return False
 
     def moveRestriction(self):
@@ -296,8 +336,13 @@ class Plugin:
                 self.core.update_speed.setX(lg_speed * self.core.dt)
             elif self.move_right:
                 self.core.update_speed.setX(-lg_speed * self.core.dt)
+            self.core.update_speed.setY(0)
+            self.core.update_speed.setZ(0)
         return self.do_ledge_grab
 
+    #
+    # LEDGE GRAB HELPER FUNCTIONS
+    #
     def faceWall(self, char_front_collision_entry):
         if char_front_collision_entry is not None \
         and self.core.hasSurfaceNormal(char_front_collision_entry):
@@ -313,6 +358,7 @@ class Plugin:
             self.core.updatePlayerHpr((h, 0, 0))
 
     def attachToWall(self, wallCollisionPos, entryLedge):
+        ledge_z = self.core.plugin_getPos().getZ()
         if entryLedge is not None:
             ledge_z = 0
             if self.core.hasSurfacePoint(entryLedge):
@@ -345,14 +391,10 @@ class Plugin:
         self.core.loop(self.LEDGE_GRAB)
 
     def enterLedgeGrabUp(self):
-        #self.core.current_seq = Sequence(
         self.core.current_animations = [self.LEDGE_GRAB_UP]
         if not self.core.getCurrentAnim() == self.LEDGE_GRAB_UP:
+            self.requestIdle = True
             self.core.play(self.LEDGE_GRAB_UP)
-        #self.core.actorInterval(self.LEDGE_GRAB_UP)#.start()
-        #    Func(self.core.plugin_requestNewState, self.core.STATE_IDLE),
-        #    Func(self.core.enterNewState))
-        #self.core.current_seq.start()
 
     def enterLedgeGrabLeft(self):
         self.core.current_animations = [self.LEDGE_GRAB_LEFT]

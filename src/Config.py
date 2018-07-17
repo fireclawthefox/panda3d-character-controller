@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from panda3d.core import KeyboardButton, ButtonHandle, Point3F, Vec3
+from panda3d.core import KeyboardButton, MouseButton, ButtonHandle, Point3F, Vec3
 try:
     from panda3d.core import InputDevice
     gamepadsupport = True
@@ -152,25 +152,25 @@ class Config:
 
         self.deviceMapKeyboard = {
                 # basic movement keys
-            "forward": KeyboardButton.asciiKey(b"w"),
-            "backward": KeyboardButton.asciiKey(b"s"),
-            "left": KeyboardButton.asciiKey(b"a"),
-            "right": KeyboardButton.asciiKey(b"d"),
-            "jump": KeyboardButton.space(),
+            "forward": [KeyboardButton.asciiKey(b"w")],
+            "backward": [KeyboardButton.asciiKey(b"s")],
+            "left": [KeyboardButton.asciiKey(b"a")],
+            "right": [KeyboardButton.asciiKey(b"d")],
+            "jump": [KeyboardButton.space()],
                 # extended action keys
-            "intel-action": KeyboardButton.asciiKey(b"e"),
-            "action1": KeyboardButton.space(),
+            "intel-action": [MouseButton.one(), MouseButton.three(), KeyboardButton.asciiKey(b"e")],
+            "action1": [KeyboardButton.space()],
                 # movement modifier keys
-            "walk": KeyboardButton.control(),
-            "sprint": KeyboardButton.shift(),
-            "crouch": KeyboardButton.asciiKey(b"c"),
-            "crawl": KeyboardButton.asciiKey(b"x"),
+            "walk": [KeyboardButton.control()],
+            "sprint": [KeyboardButton.shift()],
+            "crouch": [KeyboardButton.asciiKey(b"c")],
+            "crawl": [KeyboardButton.asciiKey(b"x")],
                 # Camera movement keys
-            "camera-up": KeyboardButton.page_up(),
-            "camera-down": KeyboardButton.end(),
-            "camera-left": KeyboardButton._del(),
-            "camera-right": KeyboardButton.page_down(),
-            "center-camera": KeyboardButton.home()
+            "camera-up": [KeyboardButton.page_up()],
+            "camera-down": [KeyboardButton.end()],
+            "camera-left": [KeyboardButton._del()],
+            "camera-right": [KeyboardButton.page_down()],
+            "center-camera": [KeyboardButton.home()]
         }
 
         # GAMEPAD
@@ -433,8 +433,8 @@ class Config:
         self.max_wall_run_speed = 7.0
         self.wall_run_off_jump_strength = 7
         self.wall_run_up_jump_direction = Vec3(0, -0.05, 0)
-        self.wall_run_left_jump_direction = Vec3(-0.05, 0, 0)
-        self.wall_run_right_jump_direction = Vec3(0.05, 0, 0)
+        self.wall_run_left_jump_direction = Vec3(-2, 0, 0)
+        self.wall_run_right_jump_direction = Vec3(2, 0, 0)
         # this determines how long the character had to fall until he
         # can initiate the wall run (prevent jumping up on high walls
         # with the use of wall runs)
