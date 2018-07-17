@@ -477,3 +477,4 @@ class Config:
         self.climb_forward_check_dist = 1.25
         self.climb_sidward_move_speed = 0.8
         self.climb_vertical_move_speed = 0.8
+        self.climb_step_height = 0.4

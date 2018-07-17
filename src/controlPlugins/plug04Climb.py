@@ -46,7 +46,10 @@ class Plugin(DirectObject):
 
         self.can_climb = False
         self.do_climb = False
+
         self.requestIdle = False
+
+        self.respectSteps = False
 
         self.can_move_vertical = False
         self.can_move_horizontal = False
@@ -56,8 +59,6 @@ class Plugin(DirectObject):
         self.right = False
         self.up = False
         self.down = False
-
-        self.checkVertPosition = False
 
         self.climb_area_entry_top = None
         self.climb_area_entry = None
@@ -143,12 +144,16 @@ class Plugin(DirectObject):
         #
         # ANIMATION STATE FUNCTIONS
         #
+        # map enter functions
         self.core.enterClimb = self.enterClimb
         self.core.enterClimbExitUp = self.enterClimbExitUp
         self.core.enterClimbVertical = self.enterClimbVertical
         self.core.enterClimbHorizontal = self.enterClimbHorizontal
         self.core.enterClimbDiagonal_ul_br = self.enterClimbDiagonal_ul_br
         self.core.enterClimbDiagonal_bl_ur = self.enterClimbDiagonal_bl_ur
+
+        # map exit functions
+        self.core.exitClimb = self.exitClimb
 
         #
         # LOAD ANIMATIONS
@@ -380,9 +385,25 @@ class Plugin(DirectObject):
             else:
                 self.core.plugin_requestNewState(None)
 
-        #if self.checkVertPosition:
-        #    # check if we are closer to the next uper or lower position
-        #    bounds = entry.getIntoNodePath().getBounds()
+        if self.respectSteps \
+        and entry is not None \
+        and self.core.hasSurfacePoint(entry):
+            entry_np = entry.getIntoNodePath()
+            if "true" in entry_np.getNetTag("Stepped").lower():
+                playerPoint = self.core.plugin_getPos()
+
+                # check if we are closer to the next uper or lower position
+                points = list(entry.getInto().getPoints())
+                points.sort(key=lambda p:p.z)
+                lowest = points[0].z
+                highest = points[-1].z
+                stepList = []
+                curStepPos = lowest
+                while(curStepPos < highest-self.core.climb_step_height):
+                    curStepPos += self.core.climb_step_height
+                    stepList.append(Point3F(playerPoint.x, playerPoint.y, curStepPos))
+                stepList.sort(key=lambda p:(p - playerPoint).length_squared())
+                self.core.updatePlayerPosFix(stepList[0])
 
         # skip plugins following this one
         return True
@@ -471,10 +492,10 @@ class Plugin(DirectObject):
     def enterClimb(self):
         self.core.current_animations = [self.ANIM_IDLE]
         self.core.loop(self.ANIM_IDLE)
-        self.checkVertPosition = True
+        self.respectSteps = True
 
     def exitClimb(self):
-        self.checkVertPosition = False
+        self.respectSteps = False
 
     def enterClimbExitUp(self):
         self.core.current_animations = [self.ANIM_EXIT_UP]
