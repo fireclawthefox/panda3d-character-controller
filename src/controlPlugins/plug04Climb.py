@@ -180,6 +180,12 @@ class Plugin(DirectObject):
         self.top_ray = "climb_top_ray-{}".format(self.pluginID)
         self.core.plugin_registerCharacterRayCheck(self.top_ray, point_a, point_b)
 
+        # Add a ray checking where the player will stand after climbing up
+        point_a = (0, -self.core.climb_forward_exit_up_dist, self.core.climb_top_check_dist)
+        point_b = (0, -self.core.climb_forward_exit_up_dist, self.core.climb_bottom_check_dist)
+        self.climb_exit_up_pos_ray = "ledge_grab_ledge_pull_up_pos_ray-{}".format(self.pluginID)
+        self.core.plugin_registerCharacterRayCheck(self.climb_exit_up_pos_ray, point_a, point_b)
+
         # Ray check below the character
         point_a = (0,0,0)
         point_b = (0, -self.core.climb_forward_check_dist, 0)
@@ -306,7 +312,7 @@ class Plugin(DirectObject):
                 #
                 # MOVE HORIZONTAL
                 #
-                if direction.getX() < 0:
+                if direction.getX() < -0.3:
                     #
                     # CHECK CLIMB LEFT
                     #
@@ -315,7 +321,7 @@ class Plugin(DirectObject):
                     if entry_left is not None \
                     and "climbable" in entry_left.getIntoNodePath().getNetTag("Type").lower():
                         self.left = True
-                if direction.getX() > 0:
+                if direction.getX() > 0.3:
                     #
                     # CHECK CLIMB RIGHT
                     #
@@ -334,7 +340,7 @@ class Plugin(DirectObject):
                 if self.core.plugin_isFirstPersonMode():
                     fp_mult = -1
 
-                if direction.getY()*fp_mult < 0:
+                if direction.getY()*fp_mult < -0.3:
                     #
                     # CHECK CLIMB UP
                     #
@@ -343,18 +349,29 @@ class Plugin(DirectObject):
                     and "climbable" in entry_top.getIntoNodePath().getNetTag("Type").lower():
                         self.up = True
                     elif entry_top is None:
-                        #
-                        # EXIT CLIMB UP
-                        #
-                        player_pos = self.core.plugin_getPos()
-                        pos = player_pos + Point3F(0, self.core.climb_forward_check_dist/2.0, self.core.player_height)
-                        has_enough_space = self.core.checkFutureCharSpace(pos)
-                        if has_enough_space:
-                            # we want to climb out on the top end of the
-                            # area
-                            request_climb_exit_up = True
-                            self.core.updatePlayerPosFix(pos)
-                if direction.getY()*fp_mult > 0:
+                        climb_exit_up_collision = self.core.getFirstCollisionEntryInLine(self.climb_exit_up_pos_ray)
+                        if climb_exit_up_collision is not None:
+                            #
+                            # EXIT CLIMB UP
+                            #
+                            # first get the position where the player should be standing
+                            # in the end
+                            pos = None
+                            if self.core.hasSurfacePoint(climb_exit_up_collision):
+                                pos = self.core.getSurfacePoint(climb_exit_up_collision, render)
+                            elif self.core.hasContactPos(climb_exit_up_collision):
+                                pos = self.core.getContactPos(climb_exit_up_collision, render)
+
+                            # check weather the player would actually have enough
+                            # space to stand there and only continue if so
+                            has_enough_space = self.core.checkFutureCharSpace(pos)
+                            if pos is not None and has_enough_space:
+                                # we want to climb out on the top end of the
+                                # area
+                                request_climb_exit_up = True
+                                pos.setZ(pos.getZ() + 0.05)
+                                self.core.updatePlayerPosFix(pos)
+                if direction.getY()*fp_mult > 0.3:
                     #
                     # CHECK CLIMB DOWN
                     #
@@ -473,9 +490,13 @@ class Plugin(DirectObject):
             #p -= 90
             #p = -p
 
-            p = 0
+            #p = 0
 
-            self.core.updatePlayerHpr((h, p, 0))
+            if self.core.mainNode.getH() != h:
+                #self.core.updatePlayerHpr((h, p, 0))
+                self.core.updatePlayerHpr((h, 0, 0))
+            # invalidate other self.core.rotational movements that were set before
+            self.core.rotation = None
 
     def attachToWall(self, entry):
         """This function will place the player at the position of the

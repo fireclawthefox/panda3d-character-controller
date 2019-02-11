@@ -112,14 +112,14 @@ class Plugin:
         self.core.plugin_registerCharacterRayCheck(self.ledge_pull_up_pos_ray, point_a, point_b)
 
         # Add a ray checking if there is a grabable ledge to the left
-        point_a = (self.core.player_radius, -self.core.ledge_forward_check_dist, self.core.ledge_top_check_dist)
-        point_b = (self.core.player_radius, -self.core.ledge_forward_check_dist, self.core.ledge_bottom_check_dist)
+        point_a = (self.core.player_radius / 2.0, -self.core.ledge_forward_check_dist, self.core.ledge_top_check_dist)
+        point_b = (self.core.player_radius / 2.0, -self.core.ledge_forward_check_dist, self.core.ledge_bottom_check_dist)
         self.ledge_detect_ray_l = "ledge_grab_ledge_detect_ray_l-{}".format(self.pluginID)
         self.core.plugin_registerCharacterRayCheck(self.ledge_detect_ray_l, point_a, point_b)
 
         # Add a ray checking if there is a grabable ledge to the right
-        point_a = (-self.core.player_radius, -self.core.ledge_forward_check_dist, self.core.ledge_top_check_dist)
-        point_b = (-self.core.player_radius, -self.core.ledge_forward_check_dist, self.core.ledge_bottom_check_dist)
+        point_a = (-self.core.player_radius / 2.0, -self.core.ledge_forward_check_dist, self.core.ledge_top_check_dist)
+        point_b = (-self.core.player_radius / 2.0, -self.core.ledge_forward_check_dist, self.core.ledge_bottom_check_dist)
         self.ledge_detect_ray_r = "ledge_grab_ledge_detect_ray_r-{}".format(self.pluginID)
         self.core.plugin_registerCharacterRayCheck(self.ledge_detect_ray_r, point_a, point_b)
 
@@ -183,9 +183,9 @@ class Plugin:
         # check for movement directions and keys
         let_go = False
         if self.core.plugin_isFirstPersonMode():
-            let_go = self.core.plugin_getMoveDirection().getY() < 0
+            let_go = self.core.plugin_getMoveDirection().getY() < -0.8
         else:
-            let_go = self.core.plugin_getMoveDirection().getY() > 0
+            let_go = self.core.plugin_getMoveDirection().getY() > 0.8
         self.move_left = self.core.plugin_getMoveDirection().getX() < 0
         self.move_right = self.core.plugin_getMoveDirection().getX() > 0
 
@@ -380,7 +380,7 @@ class Plugin:
             # we have no positions to work with!
             return
         wallPos.setZ(ledge_z - self.core.player_height - 0.05)
-        wallPos.setPos(wallPos, (0, self.core.player_radius, 0))
+        wallPos.setPos(wallPos, (0, self.core.player_radius + 0.05, 0))
 
         self.core.updatePlayerPosFix(wallPos.getPos())
 

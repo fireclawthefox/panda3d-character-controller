@@ -110,12 +110,12 @@ class Control:
         self.do_pull_up = False
         for plugin in self.inputPlugins:
             if plugin.active:
-                self.do_sprint = plugin.getSprintState()
-                self.do_walk = plugin.getWalkState()
-                self.do_center_cam = plugin.getCenterCamState()
-                self.do_jump = plugin.getJumpState()
-                self.do_intel_action = plugin.getIntelActionState()
-                self.do_pull_up = plugin.getAction1State()
+                self.do_sprint = self.do_sprint or plugin.getSprintState()
+                self.do_walk = self.do_walk or plugin.getWalkState()
+                self.do_center_cam = self.do_center_cam or plugin.getCenterCamState()
+                self.do_jump = self.do_jump or plugin.getJumpState()
+                self.do_intel_action = self.do_intel_action or plugin.getIntelActionState()
+                self.do_pull_up = self.do_pull_up or plugin.getAction1State()
 
         #
         # CHECK IF PLAYER IS STILL AIRBORN
@@ -220,8 +220,8 @@ class Control:
         if self.isAirborn:
             pass
         elif self.do_sprint and self.can_use_sprint and self.move_key_pressed and self.isMoving:
+            # SPRINTING
             # set animation
-            self.current_max_accleration = self.max_accleration_run
             if self.state == self.STATE_IDLE:
                 self.plugin_requestNewState(self.STATE_IDLE_TO_SPRINT)
             elif self.state == self.STATE_RUN:
@@ -233,6 +233,7 @@ class Control:
             elif self.state == self.STATE_WALK_TO_IDLE or self.state == self.STATE_WALK:
                 self.plugin_requestNewState(self.STATE_WALK_TO_RUN)
         elif self.do_walk and self.move_key_pressed and self.isMoving:
+            # WALKING
             # set animation
             if self.state == self.STATE_IDLE:
                 self.plugin_requestNewState(self.STATE_IDLE_TO_WALK)
@@ -244,19 +245,19 @@ class Control:
                 self.plugin_requestNewState(self.STATE_WALK)
             elif self.state == self.STATE_SPRINT or self.state == self.STATE_SPRINT_TO_IDLE:
                 self.plugin_requestNewState(self.STATE_SPRINT_TO_RUN)
-        elif self.isMoving:
+        elif self.isMoving and self.move_key_pressed:
+            # RUNNING
             # no modifier key pressed, so simply run
             # set animation
-            self.current_max_accleration = self.max_accleration_run
-            if self.state == self.STATE_IDLE and self.move_key_pressed:
+            if self.state == self.STATE_IDLE:
                 self.plugin_requestNewState(self.STATE_IDLE_TO_RUN)
-            elif self.state == self.STATE_WALK and self.move_key_pressed:
+            elif self.state == self.STATE_WALK:
                 self.plugin_requestNewState(self.STATE_WALK_TO_RUN)
-            elif self.state == self.STATE_WALK_TO_IDLE and self.move_key_pressed:
+            elif self.state == self.STATE_WALK_TO_IDLE:
                 self.plugin_requestNewState(self.STATE_RUN)
-            elif self.state == self.STATE_RUN_TO_IDLE and self.move_key_pressed:
+            elif self.state == self.STATE_RUN_TO_IDLE:
                 self.plugin_requestNewState(self.STATE_RUN)
-            elif self.state == self.STATE_SPRINT and self.move_key_pressed:
+            elif self.state == self.STATE_SPRINT:
                 self.plugin_requestNewState(self.STATE_SPRINT_TO_RUN)
 
         if self.isAirborn:
@@ -343,6 +344,7 @@ class Control:
                     #      every frame currently.
                     self.doJump(forward_speed, self.jump_direction, platform_speed / self.dt)
                 else:
+                    self.land()
                     self.doJump(forward_speed, self.jump_direction)
 
         #
@@ -427,7 +429,7 @@ class Control:
         #
         # UPDATE IN THE PHYSICS CLASS
         #
-        self.updatePlayerPos(self.update_speed, self.rotation, self.dt)
+        self.updatePlayerPos(self.update_speed, self.rotation)
 
         #
         # MOVE PLAYER WITH MOVING PLATFORM

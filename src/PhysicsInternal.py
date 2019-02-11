@@ -70,6 +70,8 @@ class Physics:
 
         self.pre_set_platform = False
 
+        self.landing_force = None
+
         self.actorNode = ActorNode("playerPhysicsController")
         self.mainNode = render.attachNewNode(self.actorNode)
 
@@ -133,7 +135,7 @@ class Physics:
         """This function will create a ray segment at the given position
         and attaches it to the given parent node. This has to be done
         for any ray check you want to do in the application."""
-        # step check ray
+        # a new ray check ray
         raytest_segment = CollisionSegment(pos_a, pos_b)
         raytest_np = parent.attachNewNode(CollisionNode(ray_id))
         raytest_np.node().addSolid(raytest_segment)
@@ -179,7 +181,7 @@ class Physics:
         self.raylist[ray_id].solid.setPointA(point_a)
         self.raylist[ray_id].solid.setPointB(point_b)
 
-    def updatePlayerPos(self, speed, heading, dt, rotation=None, rotate_around_node=None):
+    def updatePlayerPos(self, speed, heading):
         """This function should be called to set the players new
         position and heading.
         speed determines the new position of the character.
@@ -188,7 +190,12 @@ class Physics:
         This function will process the stepping and dependend on that
         requests fall and landing states"""
         if heading is not None:
+            curH = self.mainNode.getH()
             self.mainNode.setH(camera, heading)
+            newH = self.mainNode.getH()
+            self.mainNode.setH(curH)
+            rotatetoH = self.mainNode.quatInterval(0.1, Point3(newH, 0, 0))
+            rotatetoH.start()
             if not self.customP:
                 self.mainNode.setP(0)
             self.mainNode.setR(0)
@@ -196,6 +203,7 @@ class Physics:
         self.mainNode.setFluidPos(self.mainNode, speed)
         if self.state not in self.ignore_step_states:
             if self.doStep():
+                self.landing_force = self.actorNode.getPhysicsObject().getVelocity()
                 if self.state not in self.on_ground_states:
                     self.actorNode.getPhysicsObject().setVelocity(0, 0, 0)
                     self.plugin_requestNewState(self.STATE_LAND)
@@ -290,7 +298,7 @@ class Physics:
         self.mainNode.setPos(self.__getHprFloatingNewPos(rotation, parent))
         self.mainNode.setH(self.mainNode.getH() + rotation)
 
-    def checkCharCollisions(self, args):
+    def checkCharCollisions(self, collision):
         """This method will be called each time a collision occures with
         the characters main collision solids. It will check stepping as
         well as check if the character should fall or just landed
@@ -299,12 +307,13 @@ class Physics:
             pass
         elif self.doStep():
             if self.state == self.STATE_JUMP or self.state == self.STATE_FALL:
+                self.landing_force = self.actorNode.getPhysicsObject().getVelocity()
                 self.actorNode.getPhysicsObject().setVelocity(0, 0, 0)
                 self.plugin_requestNewState(self.STATE_LAND)
         elif self.state != self.STATE_JUMP and self.state != self.STATE_FALL:
             self.plugin_requestNewState(self.STATE_FALL)
         self.enterNewState()
-        base.messenger.send("plugin-character-in-collision", [args])
+        base.messenger.send("plugin-character-in-collision", [collision])
 
     def checkFloatingPlatform(self, entry):
         if entry is not None:
@@ -401,6 +410,9 @@ class Physics:
 
     def getSurfaceNormal(self, entry, np):
         return entry.getSurfaceNormal(np)
+
+    def getFallForce(self):
+        return self.actorNode.getPhysicsObject().getVelocity().getZ()
 
     def getFirstCollisionEntryInLine(self, ray_id):
         """A simple raycast check which will return the collision entry

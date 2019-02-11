@@ -65,10 +65,10 @@ class Config:
         self.anim_climb_down = self.basePath + "Fox-Climb_Down"
         self.anim_climb_left = self.basePath + "Fox-Climb_Left"
         self.anim_climb_right = self.basePath + "Fox-Climb_Right"
-        self.anim_climb_left_up = self.basePath + "Fox-Climb_Up"
-        self.anim_climb_left_down = self.basePath + "Fox-Climb_Down"
-        self.anim_climb_right_up = self.basePath + "Fox-Climb_Up"
-        self.anim_climb_right_down = self.basePath + "Fox-Climb_Down"
+        self.anim_climb_left_up = self.basePath + "Fox-Climb_Up_Left"
+        self.anim_climb_left_down = self.basePath + "Fox-Climb_Down_Left"
+        self.anim_climb_right_up = self.basePath + "Fox-Climb_Up_Right"
+        self.anim_climb_right_down = self.basePath + "Fox-Climb_Down_Right"
 
         # Paths of the animation files for first person mode
         self.anim_idle_fp = self.basePath + "Fox-Idle_fp"
@@ -94,12 +94,12 @@ class Config:
         self.anim_climb_exit_up_fp = self.basePath + "Fox-Climb_Exit_Up_fp"
         self.anim_climb_up_fp = self.basePath + "Fox-Climb_Up_fp"
         self.anim_climb_down_fp = self.basePath + "Fox-Climb_Down_fp"
-        self.anim_climb_left_fp = self.basePath + "Fox-Climb_Idle_fp"
-        self.anim_climb_right_fp = self.basePath + "Fox-Climb_Idle_fp"
-        self.anim_climb_left_up_fp = self.basePath + "Fox-Climb_Up_fp"
-        self.anim_climb_left_down_fp = self.basePath + "Fox-Climb_Down_fp"
-        self.anim_climb_right_up_fp = self.basePath + "Fox-Climb_Up_fp"
-        self.anim_climb_right_down_fp = self.basePath + "Fox-Climb_Down_fp"
+        self.anim_climb_left_fp = self.basePath + "Fox-Climb_Left"
+        self.anim_climb_right_fp = self.basePath + "Fox-Climb_Right"
+        self.anim_climb_left_up_fp = self.basePath + "Fox-Climb_Up_Left"
+        self.anim_climb_left_down_fp = self.basePath + "Fox-Climb_Down_Left"
+        self.anim_climb_right_up_fp = self.basePath + "Fox-Climb_Up_Right"
+        self.anim_climb_right_down_fp = self.basePath + "Fox-Climb_Down_Right"
 
         # If the animations only consists of a few frames this should be enabled
         # NOTE: This should always be enabled to smoth the transition within
@@ -176,13 +176,13 @@ class Config:
         # GAMEPAD
         if gamepadsupport:
             self.useGamepad = True
-            self.gamepad_type = "Wii-remote"
+            self.gamepad_type = "xbox"
             self.usedGamepadID = 0
             self.deadzone_x = 0.1
             self.deadzone_y = 0.1
             if self.gamepad_type == "Wii-remote":
                 # Default mapping for Wii Remotes
-                self.deviceMapWii = {
+                self.deviceMap = {
                     "axis-left-x": InputDevice.C_hat_x,
                     "axis-left-y": InputDevice.C_hat_y,
                     "axis-right-x": InputDevice.C_left_trigger,
@@ -196,22 +196,43 @@ class Config:
                     "action1": ButtonHandle("action_z"),
                     "sprint": ButtonHandle("action_c"),
                     "center-camera": ButtonHandle("action_1"),}
+            elif self.gamepad_type == "xbox":
+                self.deviceMap = {
+                    "axis-left-x": InputDevice.Axis.left_x,
+                    "axis-left-y": InputDevice.Axis.left_y,
+                    "axis-right-x": InputDevice.Axis.right_x,
+                    "axis-right-y": InputDevice.Axis.right_y,
+                    "camera-up": InputDevice.Axis.right_y,
+                    "camera-down": InputDevice.Axis.right_y,
+                    "camera-left": InputDevice.Axis.right_x,
+                    "camera-right": InputDevice.Axis.right_x,
+                    "jump": "face_a",
+                    "intel-action": "face_b",
+                    "action1": "face_a",
+                    "sprint": "face_x",
+                    "walk": "lshoulder",
+                    "crouch": "ltrigger",
+                    "crawl": "rtrigger",
+                    "center-camera": "rshoulder",}
             else:
                 # Default mapping for ps2 like gamepads
-                self.deviceMapPs2 = {
-                    "axis-left-x": InputDevice.C_left_x,
-                    "axis-left-y": InputDevice.C_left_y,
-                    "axis-right-x": InputDevice.C_right_x,
-                    "axis-right-y": InputDevice.C_right_y,
-                    "camera-up": ButtonHandle("arrow_up"),
-                    "camera-down": ButtonHandle("arrow_down"),
-                    "camera-left": ButtonHandle("arrow_left"),
-                    "camera-right": ButtonHandle("arrow_right"),
-                    "jump": ButtonHandle("action_a"),
-                    "intel-action": ButtonHandle("action_b"),
-                    "action1": ButtonHandle("action_x"),
-                    "sprint": ButtonHandle("action_y"),
-                    "center-camera": ButtonHandle("action_r"),}
+                self.deviceMap = {
+                    "axis-left-x": InputDevice.Axis.left_x,
+                    "axis-left-y": InputDevice.Axis.left_y,
+                    "axis-right-x": InputDevice.Axis.right_x,
+                    "axis-right-y": InputDevice.Axis.right_y,
+                    "camera-up": InputDevice.Axis.right_y,
+                    "camera-down": InputDevice.Axis.right_y,
+                    "camera-left": InputDevice.Axis.right_x,
+                    "camera-right": InputDevice.Axis.right_x,
+                    "jump": "face_a",
+                    "intel-action": "face_b",
+                    "action1": "face_y",
+                    "sprint": "face_x",
+                    "walk": "lshoulder",
+                    "crouch": "ltrigger",
+                    "crawl": "rtrigger",
+                    "center-camera": "rshoulder",}
         else:
             self.useGamepad = False
 
@@ -243,7 +264,7 @@ class Config:
         self.mouse_invert_vertical = False
         self.mouse_invert_horizontal = False
         # invert vertical camera movements when keyboard is used
-        self.keyboard_invert_vertical = False
+        self.keyboard_invert_vertical = True
         self.keyboard_invert_horizontal = False
         # screen sizes
         self.win_width_half = base.win.getXSize() // 2
@@ -344,8 +365,8 @@ class Config:
         self.speed_airborn = 3.4 #0.7
         # transit durations from specific animations. Duration is in
         # seconds
-        self.enterSprintDuration = 1.5
-        self.enterRunDuration = 0.5 #1.5
+        self.enterSprintDuration = 1.0
+        self.enterRunDuration = 0.5 #1.0
         self.enterWalkDuration = 0.5
         # This multiplier is used whenever the character makes a step
         # turn (180 degree direction change)
@@ -412,7 +433,7 @@ class Config:
         # CHARACTER WALL CHECK
         #
         # this variable sets at which distance the forward wall check should be started
-        self.forward_check_distance = 3.0
+        self.forward_check_distance = 2.0
         # this distance determines how close the player can move to a wall before he stops completely
         self.forward_stop_distance = self.player_radius + 0.15
         # this minimum speed is for the distance between the first forward wall check
@@ -478,3 +499,6 @@ class Config:
         self.climb_sidward_move_speed = 0.8
         self.climb_vertical_move_speed = 0.8
         self.climb_step_height = 0.4
+        self.climb_forward_exit_up_dist = self.player_radius * 1.3
+        self.climb_top_check_dist = self.player_height + self.player_height / 3.0
+        self.climb_bottom_check_dist = self.player_height * 0.5

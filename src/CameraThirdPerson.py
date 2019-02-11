@@ -5,6 +5,7 @@
 # PANDA3D ENGINE IMPORTS
 #
 from panda3d.core import PandaNode, NodePath
+from direct.interval.IntervalGlobal import Sequence
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -32,6 +33,8 @@ class CameraThirdPerson:
 
         self.ival_move_cam = None
 
+        self.ival_camshake = None
+
         self.cam_ray = "camera_check_ray"
         self.parent.registerRayCheck(self.cam_ray, (0,0,0), (0,0,1), render)
 
@@ -47,6 +50,9 @@ class CameraThirdPerson:
         if self.ival_move_cam is not None and self.ival_move_cam.isPlaying():
             self.ival_move_cam.finish()
             self.ival_move_cam = None
+        if self.ival_camshake is not None and self.ival_camshake.isPlaying():
+            self.ival_camshake.finish()
+            self.ival_camshake = None
         self.cam_floater.removeNode()
 
     def pauseCamera(self):
@@ -145,25 +151,25 @@ class CameraThirdPerson:
         # Move camera with the keyboard
         if cam_left:
             #                   LEFT
-            x = self.parent.keyboard_cam_speed_x * dt
+            x = cam_left * self.parent.keyboard_cam_speed_x * dt
             if self.parent.keyboard_invert_horizontal:
                 x = -x
             camera.setX(camera, -x)
-        if cam_right:
+        elif cam_right:
             #                   RIGHT
-            x = self.parent.keyboard_cam_speed_x * dt
+            x = cam_right * self.parent.keyboard_cam_speed_x * dt
             if self.parent.keyboard_invert_horizontal:
                 x = -x
             camera.setX(camera, x)
         if cam_up:
             #                    UP
-            z = self.parent.keyboard_cam_speed_y * dt
+            z = cam_up * self.parent.keyboard_cam_speed_y * dt
             if self.parent.keyboard_invert_vertical:
                 z = -z
             camera.setZ(camera, z)
         elif cam_down:
             #                   DOWN
-            z = self.parent.keyboard_cam_speed_y * dt
+            z = cam_down * self.parent.keyboard_cam_speed_y * dt
             if self.parent.keyboard_invert_vertical:
                 z = -z
             camera.setZ(camera, -z)
@@ -271,3 +277,25 @@ class CameraThirdPerson:
 
         camera.lookAt(self.cam_floater)
         return task.cont
+
+    def camShakeNod(self, distance):
+        if self.ival_move_cam is not None and self.ival_move_cam.isPlaying():
+            # Hack: We can't run two intervalls at the same time as they will
+            # interfere each other.
+            return
+        if self.ival_camshake is not None and self.ival_camshake.isPlaying():
+            self.ival_camshake.finish()
+            self.ival_camshake = None
+        posA = self.cam_floater.getPos()
+        posB = self.cam_floater.getPos()
+        posA.setZ(posA.getZ() - distance)
+        #posB.setZ(posB.getZ() + distance*0.05)
+        ivalA = self.cam_floater.posInterval(0.25, posA)
+        ivalB = self.cam_floater.posInterval(0.15, posB)
+        ivalC = self.cam_floater.posInterval(0.05, self.parent.cam_floater_pos)
+        self.ival_camshake = Sequence(
+            ivalA,
+            ivalB,
+            ivalC,
+            name="cam_shake")
+        self.ival_camshake.start()

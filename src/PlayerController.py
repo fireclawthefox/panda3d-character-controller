@@ -12,7 +12,7 @@ import uuid
 #
 from direct.actor.Actor import Actor
 from direct.fsm.FSM import FSM, RequestDenied
-from panda3d.core import WindowProperties
+from panda3d.core import WindowProperties, Vec3
 from direct.gui.OnscreenImage import OnscreenImage
 
 #
@@ -32,6 +32,7 @@ from Animator import Animator
 # PLUGIN IMPORTS
 #
 from inputPlugins import plugKeyboard
+from inputPlugins import plugGamepad
 from controlPlugins import plug01WallRun
 from controlPlugins import plug02LedgeGrab
 from controlPlugins import plug03WallCollisionAvoidance
@@ -97,6 +98,7 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         #       the main node around
         self.mainNode = self
         self.newState = None
+        self.movementVec = Vec3()
         logging.info("INIT CONFIG...")
         Config.__init__(self)
         # additional initial configuration settings set by the outher application
@@ -349,7 +351,8 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         #
         #TODO: write generic python file loader
         self.inputPlugins = [
-            plugKeyboard.Plugin(self, uuid.uuid4())
+            plugKeyboard.Plugin(self, uuid.uuid4()),
+            plugGamepad.Plugin(self, uuid.uuid4())
         ]
         # this dict will hold all plugins. The key will be used for
         # setting the priority and the value will be a list of plugins
@@ -641,6 +644,10 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
     def plugin_requestNewState(self, state):
         if self.state != state:
             self.newState = state
+            if state is self.STATE_LAND:
+                shake = min(self.landing_force.getZ(), 20.0)
+                shake = shake/20.0
+                self.camera_handler.camShakeNod(shake)
 
     def plugin_getRequestedNewState(self):
         return self.newState
@@ -679,11 +686,24 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
 
     def calcMoveDirection(self):
         """check for the characters movement direction"""
+        maxVec = Vec3()
         for plugin in self.inputPlugins:
             if plugin.active:
-                self.plugin_setMoveDirection(plugin.getMovementVec())
+                plugVec = plugin.getMovementVec()
+                if abs(plugVec.getX()) > abs(maxVec.getX()):
+                    maxVec.setX(plugVec.getX())
+
+                if abs(plugVec.getY()) > abs(maxVec.getY()):
+                    maxVec.setY(plugVec.getY())
+
+                if abs(plugVec.getZ()) > abs(maxVec.getZ()):
+                    maxVec.setZ(plugVec.getZ())
+
+        self.plugin_setMoveDirection(maxVec)
 
     def plugin_getHpr(self):
+        """This function is for usage in plugins and interal to get the
+        players rotation"""
         return self.mainNode.getHpr()
 
     def plugin_setHpr(self, hpr):
@@ -695,6 +715,12 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         """This function is for usage in plugins and interal to request
         the fly modus"""
         self.request_fly_mode = True
+
+    def plugin_getFallForce(self):
+        """This function returns the force that currently is in effect
+        on the character. When the player falls down this will typically
+        be a negative floating point value"""
+        return self.getFallForce()
 
     def plugin_registerCharacterRayCheck(self, ray_id, pos_a, pos_b):
         """"Create a ray segment for the used physics system at the

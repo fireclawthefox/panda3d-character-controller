@@ -57,8 +57,9 @@ class Plugin():
         return rotationVec"""
 
     def getCamButton(self, direction):
-        if direction not in self.parent.deviceMapKeyboard: return False
-        return self.anyKeyInListDown(self.parent.deviceMapKeyboard[direction])
+        if direction not in self.parent.deviceMapKeyboard: return 0.0
+        if self.anyKeyInListDown(self.parent.deviceMapKeyboard[direction]): return 1.0
+        return 0.0
 
     def getJumpState(self):
         return self.anyKeyInListDown(self.parent.deviceMapKeyboard["jump"])

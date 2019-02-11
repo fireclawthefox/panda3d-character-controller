@@ -8,30 +8,69 @@ except:
 
 class Plugin():
     """This plugin provides gamepad support for arbitrarry gamepads"""
-    def __init__(self, parent):
+    def __init__(self, parent, pid):
+        self.parent = parent
+        self.pluginID = pid
+        self.active = False
+        self.gamepad = None
         if not gamepadsupport: return
+
+        self.gamepads = base.devices.getDevices(InputDevice.DeviceClass.gamepad)
+        if len(self.gamepads) < 1: return
+        self.connect(self.gamepads[self.parent.usedGamepadID])
         if not self.checkGamepads(): return
 
-        self.parent = parent
+        self.active = True
+
+        self.parent.accept("connect-device", self.connect)
+        self.parent.accept("disconnect-device", self.disconnect)
+
         self.deviceMap = self.parent.deviceMap
         self.usedGamepadID = self.parent.usedGamepadID
         self.deadzone_x = self.parent.deadzone_x
         self.deadzone_y = self.parent.deadzone_y
 
-
         # set the center position of the control sticks
         # NOTE: here we assume, that the wheel is centered when the application get started.
         #       In real world applications, you should notice the user and give him enough time
         #       to center the wheel until you store the center position of the controler!
-        self.lxcenter = self.gamepads[self.usedGamepadID].findControl(self.deviceMap["axis-left-x"]).state
-        self.lycenter = self.gamepads[self.usedGamepadID].findControl(self.deviceMap["axis-left-y"]).state
+        self.rxcenter = self.gamepad.findAxis(self.deviceMap["axis-right-x"]).value
+        self.rycenter = self.gamepad.findAxis(self.deviceMap["axis-right-y"]).value
+        self.lxcenter = self.gamepad.findAxis(self.deviceMap["axis-left-x"]).value
+        self.lycenter = self.gamepad.findAxis(self.deviceMap["axis-left-y"]).value
 
         self.sprintState = False
 
+    def connect(self, device):
+        """Event handler that is called when a device is discovered."""
+
+        # We're only interested if this is a gamepad and we don't have a
+        # gamepad yet.
+        if device.device_class == InputDevice.DeviceClass.gamepad and not self.gamepad:
+            self.gamepad = device
+
+            # Enable this device to ShowBase so that we can receive events.
+            # We set up the events with a prefix of "gamepad-".
+            try:
+                base.attachInputDevice(device, prefix="gamepad")
+            except:
+                # the device has probably already been attached
+                pass
+
+    def disconnect(self, device):
+        """Event handler that is called when a device is removed."""
+
+        if self.gamepad != device:
+            # We don't care since it's not our gamepad.
+            return
+
+        # Tell ShowBase that the device is no longer needed.
+        base.detachInputDevice(device)
+        self.gamepad = None
+
     def checkGamepads(self):
         # list of connected gamepad devices
-        self.gamepads = base.devices.getDevices(InputDevice.DC_gamepad)
-        return len(self.gamepads) > 0
+        return self.gamepad is not None
 
     def hasGamepad(self):
         if not gamepadsupport: return False
@@ -40,46 +79,60 @@ class Plugin():
     def getMovementVec(self):
         if not self.hasGamepad(): return Vec3()
         movementVec = Vec3()
+
+        y_vec = -1 if self.parent.first_pserson_mode else 1
+
         # Move left/Right
-        axis_x = self.gamepads[self.usedGamepadID].findControl(self.deviceMap["axis-left-x"]).state
+        axis_x = self.gamepad.findAxis(self.deviceMap["axis-left-x"]).value
         if abs(axis_x) > self.deadzone_x:
             movementVec.setX(axis_x - self.lxcenter)
         # Move forward/backward
-        axis_y = self.gamepads[self.usedGamepadID].findControl(self.deviceMap["axis-left-y"]).state
+        axis_y = self.gamepad.findAxis(self.deviceMap["axis-left-y"]).value
         if abs(axis_y) > self.deadzone_y:
-            movementVec.setY(-(axis_y - self.lycenter))
+            movementVec.setY(-(axis_y - self.lycenter)*y_vec)
         return movementVec
 
     def getRotationVec(self):
         if not self.hasGamepad(): return Vec3()
         rotationVec = Vec3()
-        rotationVec.setX(self.gamepads[self.usedGamepadID].findControl(self.deviceMap["axis-right-x"]).state - self.rxcenter)
-        rotationVec.setY(self.gamepads[self.usedGamepadID].findControl(self.deviceMap["axis-right-y"]).state - self.rycenter)
+        rotationVec.setX(-(self.gamepad.findAxis(self.deviceMap["axis-right-x"]).value - self.rxcenter))
+        rotationVec.setY(-(self.gamepad.findAxis(self.deviceMap["axis-right-y"]).value - self.rycenter))
         return rotationVec
 
     def getCamButton(self, direction):
+        return False
+        """
         if not self.hasGamepad(): return False
         if direction not in self.deviceMap: return False
 
         self.checkGamepads()
-        return self.gamepads[self.usedGamepadID].findButton(self.deviceMap[direction]).state == InputDevice.S_down
 
+        center = 0.0
+        if "up" in direction.lower() or "down" in direction.lower():
+            center = self.rycenter
+        else:
+            center = self.rxcenter
+        return self.gamepad.findAxis(self.deviceMap[direction]).value -  center
+        """
     def getJumpState(self):
         if not self.hasGamepad(): return False
-        return self.gamepads[self.usedGamepadID].findButton(self.deviceMap["jump"]).state == InputDevice.S_down
+        return self.gamepad.findButton(self.deviceMap["jump"]).pressed
 
     def getCenterCamState(self):
         if not self.hasGamepad(): return False
-        return self.gamepads[self.usedGamepadID].findButton(self.deviceMap["center-camera"]).state == InputDevice.S_down
+        return self.gamepad.findButton(self.deviceMap["center-camera"]).pressed
 
     def getIntelActionState(self):
         if not self.hasGamepad(): return False
-        return self.gamepads[self.usedGamepadID].findButton(self.deviceMap["intel-action"]).state == InputDevice.S_down
+        return self.gamepad.findButton(self.deviceMap["intel-action"]).pressed
 
     def getAction1State(self):
         if not self.hasGamepad(): return False
-        return self.gamepads[self.usedGamepadID].findButton(self.deviceMap["action1"]).state == InputDevice.S_down
+        return self.gamepad.findButton(self.deviceMap["action1"]).pressed
 
     def getSprintState(self):
         if not self.hasGamepad(): return False
-        return self.gamepads[self.usedGamepadID].findButton(self.deviceMap["sprint"]).state == InputDevice.S_down
+        return self.gamepad.findButton(self.deviceMap["sprint"]).pressed
+
+    def getWalkState(self):
+        return self.gamepad.findButton(self.deviceMap["walk"]).pressed

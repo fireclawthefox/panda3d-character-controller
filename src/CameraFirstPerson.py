@@ -91,15 +91,18 @@ class CameraFirstPerson:
         cam_rotation = Vec3()
         dt = globalClock.getDt()
 
-
-
+        cam_left = False
+        cam_right = False
+        cam_up = False
+        cam_down = False
+        cam_center = False
         for self.parent.plugin in self.parent.inputPlugins:
             if self.parent.plugin.active:
-                cam_left = self.parent.plugin.getCamButton("camera-left")
-                cam_right = self.parent.plugin.getCamButton("camera-right")
-                cam_up = self.parent.plugin.getCamButton("camera-up")
-                cam_down = self.parent.plugin.getCamButton("camera-down")
-                cam_center = self.parent.plugin.getCenterCamState()
+                cam_left = cam_left or self.parent.plugin.getCamButton("camera-left")
+                cam_right = cam_right or self.parent.plugin.getCamButton("camera-right")
+                cam_up = cam_up or self.parent.plugin.getCamButton("camera-up")
+                cam_down = cam_down or self.parent.plugin.getCamButton("camera-down")
+                cam_center = cam_center or self.parent.plugin.getCenterCamState()
                 cam_rotation = self.parent.plugin.getRotationVec()
 
         movement_key_pressed = cam_left or cam_right or cam_up or cam_down
@@ -133,7 +136,7 @@ class CameraFirstPerson:
         mouseX = self.pointer.getX()
         mouseY = self.pointer.getY()
 
-        # some heper functions to check wehter the value is in a
+        # some helper functions to check wehter the value is in a
         # specific range.
         # NOTE: maybe we should calculate the difference that the value should change like if value of h is -366 it should move to 354 instead of 360.
         def check_h(h):
@@ -162,7 +165,7 @@ class CameraFirstPerson:
 
             #        VERTICAL
             # calculate the vertical movement speed
-            movement_y = cam_rotation.getY() * self.parent.keyboard_cam_speed_x * dt
+            movement_y = cam_rotation.getY() * self.parent.keyboard_cam_speed_y * dt
 
             keyboard_speed = self.parent.keyboard_cam_speed_y * dt
             if self.parent.keyboard_invert_vertical:
@@ -216,4 +219,8 @@ class CameraFirstPerson:
                 # the player a limited movability to the characters head
                 h = self.TorsorControl.getH() - movement_x
                 self.TorsorControl.setH(check_h(h))
+
         return task.cont
+
+    def camShakeNod(self, distance):
+        pass

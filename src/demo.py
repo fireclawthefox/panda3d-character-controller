@@ -68,7 +68,7 @@ class Main(ShowBase):
         ShowBase.__init__(self)
 
         self.accept("escape", exit)
-        self.accept("gamepad0-start", exit)
+        self.accept("gamepad-start", exit)
         self.accept("f1", self.toggleDebug)
         self.accept("r", self.resetPlayer)
         self.accept("p", self.togglePause)
