@@ -12,7 +12,7 @@ import math
 # PANDA3D ENGINE IMPORTS
 #
 from direct.showbase.DirectObject import DirectObject
-from panda3d.core import Point3F
+from panda3d.core import Point3F, NodePath
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -362,6 +362,8 @@ class Plugin(DirectObject):
                             elif self.core.hasContactPos(climb_exit_up_collision):
                                 pos = self.core.getContactPos(climb_exit_up_collision, render)
 
+                            self.core.clearFirstCollisionEntryOfRay(self.climb_exit_up_pos_ray)
+
                             # check weather the player would actually have enough
                             # space to stand there and only continue if so
                             has_enough_space = self.core.checkFutureCharSpace(pos)
@@ -379,6 +381,7 @@ class Plugin(DirectObject):
                     if entry_bottom is not None \
                     and "climbable" in entry_bottom.getIntoNodePath().getNetTag("Type").lower():
                         self.down = True
+                    self.core.clearFirstCollisionEntryOfRay(self.bottom_ray)
 
             # check which direction we are moving
             if request_climb_exit_up:
@@ -504,8 +507,22 @@ class Plugin(DirectObject):
         if entry is not None \
         and self.core.hasSurfacePoint(entry):
             point = self.core.getSurfacePoint(entry, render)
-            self.core.updatePlayerPosFix(point)
-            self.core.updatePlayerPosFix((0, self.core.player_radius, 0), self.core.mainNode)
+            climbPos = NodePath("CLIMB-COL-TEMP")
+            climbPos.setHpr(self.core.plugin_getHpr())
+            if point is None and entry is not None:
+                # This can happen if we hang on a concave ledge shape (e.g. Floating platforms)
+                if self.core.hasSurfacePoint(entry):
+                    climbPos.setPos(self.core.getSurfacePoint(entry, render))
+                elif self.core.hasContactPos(entry):
+                    climbPos.setPos(self.core.getContactPos(entry, render))
+            elif point is not None:
+                climbPos.setPos(point)
+            else:
+                # we have no positions to work with!
+                return
+
+            climbPos.setPos(climbPos, (self.core.plugin_getPos(climbPos).getX(), self.core.player_radius + 0.05, self.core.plugin_getPos(climbPos).getZ()))
+            self.core.updatePlayerPosFix(climbPos.getPos())
 
     #
     # FSM EXTENSION

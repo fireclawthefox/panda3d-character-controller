@@ -50,8 +50,15 @@ class Physics:
                 self.queue = queue
 
     def __init__(self):
+
+        if self.show_collisions:
+            base.cTrav.showCollisions(render)
         self.rayCTrav = CollisionTraverser("collision traverser for ray tests")
+        if self.show_collisions:
+            self.rayCTrav.showCollisions(render)
         self.futureCTrav = CollisionTraverser("collision traverser for future position tests")
+        if self.show_collisions:
+            self.futureCTrav.showCollisions(render)
         self.physics_pusher = PhysicsCollisionHandler()
 
         self.collisionevent_handler = CollisionHandlerEvent()
@@ -76,10 +83,13 @@ class Physics:
         self.mainNode = render.attachNewNode(self.actorNode)
 
         self.raylist = {}
+        self.ray_ids = []
+        self.ignore_ray_cycle = []
         point_a = Point3(0, 0, self.player_height/1.8)
         point_b = Point3(0, 0, -self.stepheight)
         self.foot_ray_id = "foot_ray_check"
-        self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.mainNode)
+        self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.mainNode, True)
+
 
     def startPhysics(self):
         """Start and set up the remaining physics parts of the character
@@ -131,7 +141,7 @@ class Physics:
         self.charFutureCollisionsQueue = CollisionHandlerQueue()
         self.futureCTrav.addCollider(self.charFutureCollisions, self.charFutureCollisionsQueue)
 
-    def registerRayCheck(self, ray_id, pos_a, pos_b, parent):
+    def registerRayCheck(self, ray_id, pos_a, pos_b, parent, ignore_ray_cycle=False):
         """This function will create a ray segment at the given position
         and attaches it to the given parent node. This has to be done
         for any ray check you want to do in the application."""
@@ -147,6 +157,10 @@ class Physics:
         self.rayCTrav.addCollider(r.ray_np, r.queue)
         # store the ray for later usage
         self.raylist[ray_id] = r
+        if ignore_ray_cycle:
+            self.ignore_ray_cycle.append(ray_id)
+        if ray_id not in self.ignore_ray_cycle:
+            self.ray_ids.append(ray_id)
 
     def stopPhysics(self):
         """Stops the characters physics elements. Should be called at
@@ -154,6 +168,7 @@ class Physics:
         for ray_id, ray in self.raylist.items():
             ray.ray_np.removeNode()
         self.raylist = None
+        self.ray_ids = None
         self.physics_pusher.clearColliders()
         self.rayCTrav.clearColliders()
         del self.rayCTrav
@@ -162,16 +177,28 @@ class Physics:
         """This method must be called every frame to update the ray
         traversal. So it should be called before any checks to
         ray segments will be made."""
+
+        #cycle through all rays, only update one per frame
+        self.ray_ids = self.ray_ids[1:] + self.ray_ids[:1]
+        for ray_id, ray in self.raylist.items():
+            if ray_id == self.ray_ids[0]:
+                ray.ray_np.node().setFromCollideMask(self.ray_mask)
+            elif ray_id not in self.ignore_ray_cycle:
+                ray.ray_np.node().setFromCollideMask(BitMask32.allOff())
+
         self.rayCTrav.traverse(render)
         for ray_id, ray in self.raylist.items():
+            if ray_id in self.ray_ids:
+                if ray_id != self.ray_ids[0]: continue
             if ray.queue.getNumEntries() > 0:
-                try:
-                    ray.queue.sortEntries()
-                    entry = None
-                    entry = ray.queue.getEntry(0)
-                    self.raylist[ray_id].last_entry = entry
-                except:
-                    pass
+                #try:
+                #TODO: IF THIS ERROR EVER HAPPEN AGAIN, REPORT TO rdb
+                ray.queue.sortEntries()
+                entry = None
+                entry = ray.queue.getEntry(0)
+                self.raylist[ray_id].last_entry = entry
+                #except:
+                #    pass
             else:
                 self.raylist[ray_id].last_entry = None
 
@@ -349,6 +376,7 @@ class Physics:
 
             # Check if we land on a movable platform
             groundNode = self.getFirstCollisionIntoNodeInLine(self.foot_ray_id)
+            self.clearFirstCollisionEntryOfRay(self.foot_ray_id)
             self.cleanFloatingPlatform()
             self.pre_set_platform = False
             if groundNode is not None:
@@ -419,6 +447,12 @@ class Physics:
         of the first collision point as seen from the previously
         registred ray with the given ID"""
         return self.raylist[ray_id].last_entry
+
+    def clearFirstCollisionEntryOfRay(self, ray_id):
+        """sets the entry stored for that ray to None to make sure it
+        won't store an entry for a couple of frames until the ray is
+        querried again"""
+        self.raylist[ray_id].last_entry = None
 
     def getFirstCollisionIntoNodeInLine(self, ray_id):
         """A simple raycast check which will return the into node of the
@@ -520,9 +554,15 @@ class Physics:
         dt = globalClock.getDt()
         jumpVec = Vec3(
             jump_direction.getX()*dt,
-            -((forwardSpeed*self.jump_forward_force_mult))*dt,
+            -((forwardSpeed*self.jump_forward_force_mult)+jump_direction.getY())*dt,
             (self.phys_jump_strength+jump_direction.getZ())*dt)
+        #TODO: [WIP] Problems in the-traveling-fox game
+        #print("pre")
+        #print(jumpVec)
+        #print(self.jump_strength)
         jumpVec *= self.jump_strength
+        #print("post")
+        #print(jumpVec)
 
         # rotate the extraSpeedVector to face the same direction the mainNode vector
         charVec = self.mainNode.getRelativeVector(render, extraSpeedVec)

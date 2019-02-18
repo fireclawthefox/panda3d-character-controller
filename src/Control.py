@@ -110,6 +110,7 @@ class Control:
         self.do_pull_up = False
         for plugin in self.inputPlugins:
             if plugin.active:
+                plugin.centerGamepadAxes()
                 self.do_sprint = self.do_sprint or plugin.getSprintState()
                 self.do_walk = self.do_walk or plugin.getWalkState()
                 self.do_center_cam = self.do_center_cam or plugin.getCenterCamState()

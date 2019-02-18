@@ -97,7 +97,7 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         #       by a node that is controlled by physics and will move
         #       the main node around
         self.mainNode = self
-        self.newState = None
+        self.ttfNewState = None
         self.movementVec = Vec3()
         logging.info("INIT CONFIG...")
         Config.__init__(self)
@@ -341,6 +341,7 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
             self.shadow.setBin("fixed", 10)
             self.shadow.reparentTo(render)
 
+        logging.info("Setup control plugins...")
         #
         # CONTROLS SETUP
         #
@@ -363,6 +364,7 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
             20:[plug01WallRun.Plugin(self, uuid.uuid4())],
             50:[plug03WallCollisionAvoidance.Plugin(self, uuid.uuid4())]
         }
+        logging.info("INIT PLAYER DONE")
 
     # OVERRIDE THE defaultFilter FROM FSM
 
@@ -643,19 +645,19 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
 
     def plugin_requestNewState(self, state):
         if self.state != state:
-            self.newState = state
+            self.ttfNewState = state
             if state is self.STATE_LAND:
                 shake = min(self.landing_force.getZ(), 20.0)
                 shake = shake/20.0
                 self.camera_handler.camShakeNod(shake)
 
     def plugin_getRequestedNewState(self):
-        return self.newState
+        return self.ttfNewState
 
     def enterNewState(self):
-        if self.newState is not None:
-            self.request(self.newState)
-        self.newState = None
+        if self.ttfNewState is not None:
+            self.request(self.ttfNewState)
+        self.ttfNewState = None
 
     def plugin_setPos(self, pos):
         """This function is for usage in plugins and interal to set the
@@ -668,7 +670,9 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         # point and hence will "step" back to that position.
         self.updatePhysics()
 
-    def plugin_getPos(self):
+    def plugin_getPos(self, relTo=None):
+        if relTo is not None:
+            return self.mainNode.getPos(relTo)
         return self.mainNode.getPos()
 
     def plugin_getMoveDirection(self):
@@ -722,13 +726,13 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         be a negative floating point value"""
         return self.getFallForce()
 
-    def plugin_registerCharacterRayCheck(self, ray_id, pos_a, pos_b):
+    def plugin_registerCharacterRayCheck(self, ray_id, pos_a, pos_b, ignore_ray_cycles=False):
         """"Create a ray segment for the used physics system at the
         given position and attaches it to the players main node. This
         should to be used for any ray check you want to use in the
         application.
         """
-        self.registerRayCheck(ray_id, pos_a, pos_b, self.mainNode)
+        self.registerRayCheck(ray_id, pos_a, pos_b, self.mainNode, ignore_ray_cycles)
 
     def plugin_isFirstPersonMode(self):
         return self.first_pserson_mode

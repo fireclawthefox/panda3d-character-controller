@@ -380,7 +380,7 @@ class Plugin:
             # we have no positions to work with!
             return
         wallPos.setZ(ledge_z - self.core.player_height - 0.05)
-        wallPos.setPos(wallPos, (0, self.core.player_radius + 0.05, 0))
+        wallPos.setPos(wallPos, (self.core.plugin_getPos(wallPos).getX(), self.core.player_radius + 0.05, 0))
 
         self.core.updatePlayerPosFix(wallPos.getPos())
 

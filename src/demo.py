@@ -53,6 +53,7 @@ logging.basicConfig(
 
 
 loadPrcFileData("","""
+show-frame-rate-meter #t
 model-path $MAIN_DIR/testmodel
 cursor-hidden 1
 on-screen-debug-enabled #f

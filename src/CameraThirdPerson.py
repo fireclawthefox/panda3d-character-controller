@@ -262,6 +262,7 @@ class CameraThirdPerson:
                     self.ival_move_cam = camera.posInterval(duration, pos)
                     self.ival_move_cam.start()
                 #camera.setPos(pos)
+            self.parent.clearFirstCollisionEntryOfRay(self.cam_ray)
 
         # If player is to close move the camera backwards
         if camdist < self.parent.min_cam_distance:

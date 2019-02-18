@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from panda3d.core import KeyboardButton, MouseButton, ButtonHandle, Point3F, Vec3
-try:
-    from panda3d.core import InputDevice
-    gamepadsupport = True
-except:
-    gamepadsupport = False
+from panda3d.core import InputDevice
+
+from inputPlugins.inputMapping import InputMapping
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -147,94 +145,18 @@ class Config:
         #
         # CONTROLS
         #
-        # KEYBOARD & MOUSE
-        self.useKeyboard = True
-
-        self.deviceMapKeyboard = {
-                # basic movement keys
-            "forward": [KeyboardButton.asciiKey(b"w")],
-            "backward": [KeyboardButton.asciiKey(b"s")],
-            "left": [KeyboardButton.asciiKey(b"a")],
-            "right": [KeyboardButton.asciiKey(b"d")],
-            "jump": [KeyboardButton.space()],
-                # extended action keys
-            "intel-action": [MouseButton.one(), MouseButton.three(), KeyboardButton.asciiKey(b"e")],
-            "action1": [KeyboardButton.space()],
-                # movement modifier keys
-            "walk": [KeyboardButton.control()],
-            "sprint": [KeyboardButton.shift()],
-            "crouch": [KeyboardButton.asciiKey(b"c")],
-            "crawl": [KeyboardButton.asciiKey(b"x")],
-                # Camera movement keys
-            "camera-up": [KeyboardButton.page_up()],
-            "camera-down": [KeyboardButton.end()],
-            "camera-left": [KeyboardButton._del()],
-            "camera-right": [KeyboardButton.page_down()],
-            "center-camera": [KeyboardButton.home()]
+        # append gamepad and other device mappings here
+        self.deviceMaps = {
+            "Keyboard and Mouse": InputMapping()
         }
-
-        # GAMEPAD
-        if gamepadsupport:
-            self.useGamepad = True
-            self.gamepad_type = "xbox"
-            self.usedGamepadID = 0
-            self.deadzone_x = 0.1
-            self.deadzone_y = 0.1
-            if self.gamepad_type == "Wii-remote":
-                # Default mapping for Wii Remotes
-                self.deviceMap = {
-                    "axis-left-x": InputDevice.C_hat_x,
-                    "axis-left-y": InputDevice.C_hat_y,
-                    "axis-right-x": InputDevice.C_left_trigger,
-                    "axis-right-y": InputDevice.C_right_trigger,
-                    "camera-up": ButtonHandle("arrow_up"),
-                    "camera-down": ButtonHandle("arrow_down"),
-                    "camera-left": ButtonHandle("arrow_left"),
-                    "camera-right": ButtonHandle("arrow_right"),
-                    "jump": ButtonHandle("action_a"),
-                    "intel-action": ButtonHandle("action_b"),
-                    "action1": ButtonHandle("action_z"),
-                    "sprint": ButtonHandle("action_c"),
-                    "center-camera": ButtonHandle("action_1"),}
-            elif self.gamepad_type == "xbox":
-                self.deviceMap = {
-                    "axis-left-x": InputDevice.Axis.left_x,
-                    "axis-left-y": InputDevice.Axis.left_y,
-                    "axis-right-x": InputDevice.Axis.right_x,
-                    "axis-right-y": InputDevice.Axis.right_y,
-                    "camera-up": InputDevice.Axis.right_y,
-                    "camera-down": InputDevice.Axis.right_y,
-                    "camera-left": InputDevice.Axis.right_x,
-                    "camera-right": InputDevice.Axis.right_x,
-                    "jump": "face_a",
-                    "intel-action": "face_b",
-                    "action1": "face_a",
-                    "sprint": "face_x",
-                    "walk": "lshoulder",
-                    "crouch": "ltrigger",
-                    "crawl": "rtrigger",
-                    "center-camera": "rshoulder",}
-            else:
-                # Default mapping for ps2 like gamepads
-                self.deviceMap = {
-                    "axis-left-x": InputDevice.Axis.left_x,
-                    "axis-left-y": InputDevice.Axis.left_y,
-                    "axis-right-x": InputDevice.Axis.right_x,
-                    "axis-right-y": InputDevice.Axis.right_y,
-                    "camera-up": InputDevice.Axis.right_y,
-                    "camera-down": InputDevice.Axis.right_y,
-                    "camera-left": InputDevice.Axis.right_x,
-                    "camera-right": InputDevice.Axis.right_x,
-                    "jump": "face_a",
-                    "intel-action": "face_b",
-                    "action1": "face_y",
-                    "sprint": "face_x",
-                    "walk": "lshoulder",
-                    "crouch": "ltrigger",
-                    "crawl": "rtrigger",
-                    "center-camera": "rshoulder",}
-        else:
-            self.useGamepad = False
+        self.deviceMaps["Keyboard and Mouse"].setDefaultMappingKeyboardAndMouse()
+        self.usedDevice = None
+        self.selectedDevice = "Keyboard and Mouse"
+        for device in base.devices.getDevices(InputDevice.DeviceClass.gamepad):
+            if device.name == self.selectedDevice:
+                self.usedDevice = device
+        self.deadzone_x = 0.1
+        self.deadzone_y = 0.1
 
         #
         # CAMERA CONTROL VARIABLES
@@ -449,11 +371,13 @@ class Config:
         self.wall_run_forward_check_dist = 1.25
         self.wall_run_sideward_check_dist = 1.25
         self.wall_run_enabled = True
-        self.min_wall_run_speed = 2.5
+        self.min_wall_run_speed = 1.5
         self.wall_run_speed = 2.5
-        self.max_wall_run_speed = 7.0
-        self.wall_run_off_jump_strength = 7
+        self.max_wall_run_speed = 5
+        self.wall_run_forward_speed_multiplier = 2.0
+        self.wall_run_off_jump_strength = 5
         self.wall_run_up_jump_direction = Vec3(0, -0.05, 0)
+        self.wall_run_forward_jump_direction = Vec3(0, 2, 0)
         self.wall_run_left_jump_direction = Vec3(-2, 0, 0)
         self.wall_run_right_jump_direction = Vec3(2, 0, 0)
         # this determines how long the character had to fall until he

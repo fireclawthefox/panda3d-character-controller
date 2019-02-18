@@ -123,12 +123,12 @@ class Plugin:
         # Left side collision
         point_b = (self.core.wall_run_sideward_check_dist, 0, self.core.player_height/2.0)
         self.left_ray = "wall_run_left_ray-{}".format(self.pluginID)
-        self.core.plugin_registerCharacterRayCheck(self.left_ray, point_a, point_b)
+        self.core.plugin_registerCharacterRayCheck(self.left_ray, point_a, point_b, True)
 
         # Right side collision
         point_b = (-self.core.wall_run_sideward_check_dist, 0, self.core.player_height/2.0)
         self.right_ray = "wall_run_right_ray-{}".format(self.pluginID)
-        self.core.plugin_registerCharacterRayCheck(self.right_ray, point_a, point_b)
+        self.core.plugin_registerCharacterRayCheck(self.right_ray, point_a, point_b, True)
 
         #
         # ACTIVATE PLUGIN
@@ -222,6 +222,8 @@ class Plugin:
                     self.setWallRunDirection(self.WALLRUN_LEFT)
                     if self.move_right:
                         self.core.jump_direction = self.core.wall_run_left_jump_direction
+                    else:
+                        self.core.jump_direction = self.core.wall_run_forward_jump_direction
 
                     # make sure we're always as close to the wall as possible
                     # get the walls possition
@@ -254,6 +256,8 @@ class Plugin:
                     self.setWallRunDirection(self.WALLRUN_RIGHT)
                     if self.move_left:
                         self.core.jump_direction = self.core.wall_run_right_jump_direction
+                    else:
+                        self.core.jump_direction = self.core.wall_run_forward_jump_direction
                     # make sure we're always as close to the wall as possible
                     pos = char_right_collision_entry.getSurfacePoint(render)
                     posA = NodePath("WALL-COL-TEMP")
@@ -331,7 +335,7 @@ class Plugin:
                 # We don't need to transition to any other animation
                 self.core.plugin_requestNewState(None)
 
-        # check wether if we are in a wall run state but shouldn't
+        # check wether we are in a wall run state but shouldn't
         # actually be in it anymore
         if ((
             char_front_collision_entry is None \
@@ -359,6 +363,8 @@ class Plugin:
             #if wr_speed <= 0:
             #    wr_speed = self.core.min_wall_run_speed
             self.core.update_speed.setZ(wr_speed * self.core.dt)
+            # Add some forward speed so the character will do wall runs more easy
+            self.core.update_speed.setY(self.core.update_speed.getY() * self.core.wall_run_forward_speed_multiplier)
             self.do_wall_run = False
 
     #
