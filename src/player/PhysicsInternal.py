@@ -556,13 +556,7 @@ class Physics:
             jump_direction.getX()*dt,
             -((forwardSpeed*self.jump_forward_force_mult)+jump_direction.getY())*dt,
             (self.phys_jump_strength+jump_direction.getZ())*dt)
-        #TODO: [WIP] Problems in the-traveling-fox game
-        #print("pre")
-        #print(jumpVec)
-        #print(self.jump_strength)
         jumpVec *= self.jump_strength
-        #print("post")
-        #print(jumpVec)
 
         # rotate the extraSpeedVector to face the same direction the mainNode vector
         charVec = self.mainNode.getRelativeVector(render, extraSpeedVec)

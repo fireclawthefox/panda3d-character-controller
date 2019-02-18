@@ -4,7 +4,7 @@
 from panda3d.core import KeyboardButton, MouseButton, ButtonHandle, Point3F, Vec3
 from panda3d.core import InputDevice
 
-from inputPlugins.inputMapping import InputMapping
+from player.inputPlugins.inputMapping import InputMapping
 
 __author__ = "Fireclaw the Fox"
 __license__ = """

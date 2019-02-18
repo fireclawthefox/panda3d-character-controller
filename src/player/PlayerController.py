@@ -18,25 +18,25 @@ from direct.gui.OnscreenImage import OnscreenImage
 #
 # CHARACTER SPECIFIC IMPORTS
 #
-from Config import Config, USEBULLET, USEINTERNAL
-from CameraThirdPerson import CameraThirdPerson
-from CameraFirstPerson import CameraFirstPerson
-from Control import Control
+from player.Config import Config, USEBULLET, USEINTERNAL
+from player.CameraThirdPerson import CameraThirdPerson
+from player.CameraFirstPerson import CameraFirstPerson
+from player.Control import Control
 if USEBULLET:
-    from PhysicsBullet import Physics
+    from player.PhysicsBullet import Physics
 elif USEINTERNAL:
-    from PhysicsInternal import Physics
-from Animator import Animator
+    from player.PhysicsInternal import Physics
+from player.Animator import Animator
 
 #
 # PLUGIN IMPORTS
 #
-from inputPlugins import plugKeyboard
-from inputPlugins import plugGamepad
-from controlPlugins import plug01WallRun
-from controlPlugins import plug02LedgeGrab
-from controlPlugins import plug03WallCollisionAvoidance
-from controlPlugins import plug04Climb
+from player.inputPlugins import plugKeyboard
+from player.inputPlugins import plugGamepad
+from player.controlPlugins import plug01WallRun
+from player.controlPlugins import plug02LedgeGrab
+from player.controlPlugins import plug03WallCollisionAvoidance
+from player.controlPlugins import plug04Climb
 
 __author__ = "Fireclaw the Fox"
 __license__ = """

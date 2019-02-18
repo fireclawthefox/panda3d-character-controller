@@ -34,8 +34,13 @@ from panda3d.bullet import (
     BulletHelper)
 from panda3d.physics import ForceNode, LinearVectorForce
 from direct.interval.IntervalGlobal import Sequence, Wait
-from PlayerController import PlayerController
-from Config import USEBULLET, USEINTERNAL
+
+# The necessary import to run the Extended Character Controller
+from player.PlayerController import PlayerController
+
+# only necessary to check whether bullet or the internal physics engine
+# should be used
+from player.Config import USEBULLET, USEINTERNAL
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
