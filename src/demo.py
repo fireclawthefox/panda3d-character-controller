@@ -64,8 +64,9 @@ cursor-hidden 1
 on-screen-debug-enabled #f
 want-pstats #f
 want-tk #f
-fullscreen #t
-win-size 1920 1080
+fullscreen #f
+#win-size 1920 1080
+win-size 840 720
 """)
 
 class Main(ShowBase):
@@ -82,6 +83,7 @@ class Main(ShowBase):
         self.accept("f3", self.toggleOSD)
         # automatically pause if the player is idling for to long
         self.accept("playerIdling", self.pause)
+        self.accept("reset-Avatar", self.resetPlayer)
         #def printsomething():
         #    print "something"
         #self.accept("gamepad1-action_a", printsomething)
@@ -169,6 +171,7 @@ class Main(ShowBase):
             base.enableParticles()
             base.cTrav = CollisionTraverser("base collision traverser")
             base.cTrav.setRespectPrevTransform(True)
+
             # setup default gravity
             gravityFN = ForceNode("world-forces")
             gravityFNP = render.attachNewNode(gravityFN)
@@ -382,6 +385,7 @@ class Main(ShowBase):
         fpSub = floatingPlatform.find("**/FloatingPlatform")
         fpSub.setName(fpSub.getName()+str(platformID))
         floatingPlatform.reparentTo(self.level)
+
 
         # create the platforms movement using an interval sequence
         platformIval = Sequence(

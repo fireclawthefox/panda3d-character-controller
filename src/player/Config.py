@@ -146,12 +146,15 @@ class Config:
         # CONTROLS
         #
         # append gamepad and other device mappings here
+        gamepadName = "Microsoft X-Box 360 pad"
         self.deviceMaps = {
-            "Keyboard and Mouse": InputMapping()
+            "Keyboard and Mouse": InputMapping(),
+            gamepadName: InputMapping()
         }
         self.deviceMaps["Keyboard and Mouse"].setDefaultMappingKeyboardAndMouse()
+        self.deviceMaps[gamepadName].setDefaultMappingGenericGamepad()
         self.usedDevice = None
-        self.selectedDevice = "Keyboard and Mouse"
+        self.selectedDevice = gamepadName #"Keyboard and Mouse"
         for device in base.devices.getDevices(InputDevice.DeviceClass.gamepad):
             if device.name == self.selectedDevice:
                 self.usedDevice = device
@@ -224,7 +227,7 @@ class Config:
         # the minimum distance on the Z-Axis to the player
         self.min_cam_height_distance = 0.25
         # the average camera height
-        self.cam_height_avg = (self.max_cam_height_distance - self.min_cam_height_distance) / 2.0 + self.min_cam_height_distance
+        self.cam_height_avg = ((self.max_cam_height_distance - self.min_cam_height_distance) / 2.0 + self.min_cam_height_distance) - 2
         self.cam_height_avg_up = self.cam_height_avg + 0.2
         self.cam_height_avg_down = self.cam_height_avg - 0.2
         # the initial cam height
@@ -383,7 +386,7 @@ class Config:
         # this determines how long the character had to fall until he
         # can initiate the wall run (prevent jumping up on high walls
         # with the use of wall runs)
-        self.wall_run_min_fall_time = 1.5
+        self.wall_run_min_fall_time = 1.3
 
         #
         # CHARACTER LEDGE GRAB
@@ -420,6 +423,7 @@ class Config:
         # CHARACTER CLIMBING
         #
         self.climb_forward_check_dist = 1.25
+        self.climb_sprint_multiplier = 2.0
         self.climb_sidward_move_speed = 0.8
         self.climb_vertical_move_speed = 0.8
         self.climb_step_height = 0.4

@@ -104,7 +104,7 @@ class Animator:
                 try:
                     self.request(state)
                 except:
-                    print("======== EXCEPTION! ========")
+                    logging.exception("======== EXCEPTION! ========")
                     logging.exception("requested invalid state {} while in {}".format(state, self.state))
 
     def startCurSeq(self, animFrom, animTo, easeIn, easeOut, finalState):

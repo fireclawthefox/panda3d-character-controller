@@ -345,7 +345,8 @@ class Control:
                     #      every frame currently.
                     self.doJump(forward_speed, self.jump_direction, platform_speed / self.dt)
                 else:
-                    self.land()
+                    # Why did I had to put this here? self.land kinda breaks jump functionality
+                    #self.land()
                     self.doJump(forward_speed, self.jump_direction)
 
         #
@@ -436,7 +437,7 @@ class Control:
         # MOVE PLAYER WITH MOVING PLATFORM
         #
         # respect moving platforms
-        if self.active_platform is not None:
+        if self.active_platform is not None and not self.state in self.jump_and_fall_states:
             # now update the player position according to the platform
             if self.state in self.flying_states:
                 self.updatePlayerPosFloating(platform_speed)

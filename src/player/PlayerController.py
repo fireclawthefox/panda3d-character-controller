@@ -643,6 +643,9 @@ class PlayerController(FSM, Config, Physics, Actor, Control, Animator):
         passed transition"""
         self.defaultTransitions[state] += transitions
 
+    def plugin_setCurrentAnimationPlayRate(self,rate):
+        self.setCurrentAnimsPlayRate(rate)
+
     def plugin_requestNewState(self, state):
         if self.state != state:
             self.ttfNewState = state

@@ -175,7 +175,7 @@ class CameraThirdPerson:
             camera.setZ(camera, -z)
 
         # Move camera with moving platforms
-        if self.parent.active_platform is not None:
+        if self.parent.active_platform is not None and self.parent.state not in self.parent.jump_and_fall_states:
             platformPositionAbsolute = self.parent.active_platform.getPos()
             # Character on moving platform
             if self.last_platform_position_cam is None:

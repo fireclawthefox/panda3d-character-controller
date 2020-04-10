@@ -104,6 +104,14 @@ class CameraFirstPerson:
                 cam_down = cam_down or self.parent.plugin.getCamButton("camera-down")
                 cam_center = cam_center or self.parent.plugin.getCenterCamState()
                 cam_rotation = self.parent.plugin.getRotationVec()
+        if cam_rotation != Vec3():
+            # we ignore button presses for camera movement if we have an analog style movement
+            # this fixes a problem if the cam movement for buttons and rotation are set to the
+            # same axis on gamepads
+            cam_left = False
+            cam_right = False
+            cam_up = False
+            cam_down = False
 
         movement_key_pressed = cam_left or cam_right or cam_up or cam_down
 
