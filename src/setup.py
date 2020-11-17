@@ -11,7 +11,7 @@ setuptools.setup(
     description="Extensive character control system to be used with the Panda3D engine",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://launchpad.net/extended-char-controller",
+    url="https://github.com/fireclawthefox/panda3d-character-controller",
     packages=setuptools.find_packages(),
     include_package_data=True,
     classifiers=[
