@@ -36,11 +36,11 @@ from panda3d.physics import ForceNode, LinearVectorForce
 from direct.interval.IntervalGlobal import Sequence, Wait
 
 # The necessary import to run the Extended Character Controller
-from player.PlayerController import PlayerController
+from characterController.PlayerController import PlayerController
 
 # only necessary to check whether bullet or the internal physics engine
 # should be used
-from player.Config import USEBULLET, USEINTERNAL
+from characterController.Config import USEBULLET, USEINTERNAL
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -66,7 +66,8 @@ want-pstats #f
 want-tk #f
 fullscreen #f
 #win-size 1920 1080
-win-size 840 720
+win-size 1080 720
+#win-size 840 720
 """)
 
 class Main(ShowBase):
@@ -84,9 +85,6 @@ class Main(ShowBase):
         # automatically pause if the player is idling for to long
         self.accept("playerIdling", self.pause)
         self.accept("reset-Avatar", self.resetPlayer)
-        #def printsomething():
-        #    print "something"
-        #self.accept("gamepad1-action_a", printsomething)
         self.disableMouse()
 
         base.win.movePointer(0, base.win.getXSize() // 2, base.win.getYSize() // 2)
@@ -101,10 +99,7 @@ class Main(ShowBase):
         #
         # SIMPLE LEVEL SETUP
         #
-        if self.useInternal:
-            self.level = loader.loadModel("../data/level/level")
-        else:
-            self.level = loader.loadModel("../data/level/level")
+        self.level = loader.loadModel("../data/level/level")
         self.level.reparentTo(render)
         #
         # Lights
@@ -211,7 +206,6 @@ class Main(ShowBase):
 
             # Set the world
             self.world = base.cTrav
-
         #
         # PHYSICS SETUP END
         #
@@ -241,25 +235,25 @@ class Main(ShowBase):
         #
         # THE CHARACTER
         #
-        self.p = PlayerController(self.world)
-        self.p.startPlayer()
+        self.playerController = PlayerController(self.world, "../data/config.json")
+        self.playerController.startPlayer()
         # find the start position for the character
         startpos = self.level.find("**/StartPos").getPos()
         if USEBULLET:
             # Due to the setup and limitation of bullets collision shape
             # placement, we need to shift the character up by half its
             # height.
-            startpos.setZ(startpos.getZ() + self.p.player_height/2.0)
-        self.p.setStartPos(startpos)
-        self.p.setStartHpr(self.level.find("**/StartPos").getHpr())
+            startpos.setZ(startpos.getZ() + self.playerController.getConfig("player_height")/2.0)
+        self.playerController.setStartPos(startpos)
+        self.playerController.setStartHpr(self.level.find("**/StartPos").getHpr())
 
         self.pause = False
 
-        self.p.camera_handler.centerCamera()
+        self.playerController.camera_handler.centerCamera()
 
         # This function should be called whenever the player isn't
         # needed anymore like at an application quit method.
-        #self.p.stopPlayer()
+        #self.playerController.stopPlayer()
 
     def toggleDebug(self):
         """dis- and enable the collision debug visualization"""
@@ -269,12 +263,13 @@ class Main(ShowBase):
                 self.debugNP.show()
             if self.useInternal:
                 self.moveThroughBoxes.show()
-                self.p.charCollisions.show()
-                self.p.shadowRay.show()
-                self.p.charFutureCollisions.show()
-                self.p.eventCollider.show()
-                for rayID, ray in self.p.raylist.items():
+                self.playerController.charCollisions.show()
+                self.playerController.shadowRay.show()
+                self.playerController.charFutureCollisions.show()
+                self.playerController.eventCollider.show()
+                for rayID, ray in self.playerController.raylist.items():
                     ray.ray_np.show()
+                base.cTrav.showCollisions(render)
             self.debugactive = True
         else:
             if self.useBullet:
@@ -282,20 +277,21 @@ class Main(ShowBase):
                 self.debugNP.hide()
             if self.useInternal:
                 self.moveThroughBoxes.hide()
-                self.p.charCollisions.hide()
-                self.p.shadowRay.hide()
-                self.p.charFutureCollisions.hide()
-                self.p.eventCollider.hide()
-                for rayID, ray in self.p.raylist.items():
+                self.playerController.charCollisions.hide()
+                self.playerController.shadowRay.hide()
+                self.playerController.charFutureCollisions.hide()
+                self.playerController.eventCollider.hide()
+                for rayID, ray in self.playerController.raylist.items():
                     ray.ray_np.hide()
+                base.cTrav.hideCollisions()
             self.debugactive = False
 
     def resetPlayer(self):
         """This function simply resets the player to the start position
         and centers the camera behind him."""
-        self.p.setStartPos(self.level.find("**/StartPos").getPos())
-        self.p.setStartHpr(self.level.find("**/StartPos").getHpr())
-        self.p.camera_handler.centerCamera()
+        self.playerController.setStartPos(self.level.find("**/StartPos").getPos())
+        self.playerController.setStartHpr(self.level.find("**/StartPos").getHpr())
+        self.playerController.camera_handler.centerCamera()
 
     def pause(self):
         print("PAUSE")
@@ -307,21 +303,21 @@ class Main(ShowBase):
         player"""
         if self.pause:
             # to respect window size changes we reset the necessary variables
-            self.p.win_width_half = base.win.getXSize() // 2
-            self.p.win_height_half = base.win.getYSize() // 2
+            self.playerController.win_width_half = base.win.getXSize() // 2
+            self.playerController.win_height_half = base.win.getYSize() // 2
 
-            self.p.resumePlayer()
+            self.playerController.resumePlayer()
         else:
-            self.p.pausePlayer()
+            self.playerController.pausePlayer()
         self.pause = not self.pause
 
     def toggleCamera(self):
         """This function shows how the app can toggle the camera system
         between first and third person mode"""
-        if self.p.first_pserson_mode:
-            self.p.changeCameraSystem("thirdperson")
+        if self.playerController.plugin_isFirstPersonMode():
+            self.playerController.changeCameraSystem("thirdperson")
         else:
-            self.p.changeCameraSystem("firstperson")
+            self.playerController.changeCameraSystem("firstperson")
 
     def toggleOSD(self):
         self.osd.enabled = not self.osd.enabled
@@ -336,13 +332,13 @@ class Main(ShowBase):
         # use self.osd.add("key", value) to add a data pair which will
         # be updated every frame
         #self.osd.add("Rotation", str(self.platforms[4].getH()))
-        #self.osd.add("Speed", str(self.p.update_speed))
+        #self.osd.add("Speed", str(self.playerController.update_speed))
 
 
         #
         # GAMEPAD DEBUGGING
         #
-        #gamepads = self.p.gamepad.gamepads
+        #gamepads = self.playerController.gamepad.gamepads
 
 
         #from panda3d.core import ButtonHandle
@@ -351,18 +347,18 @@ class Main(ShowBase):
         #self.osd.add("HANDLE INDEX:", str(ButtonHandle("action_a").get_index()) + " " + str(gamepads[1].get_button_map(6).get_index()))
         #self.osd.add("STATE BY HANDLE:", str(gamepads[0].findButton(ButtonHandle("action_b")).state))
         #self.osd.add("MAP at 6:", str(gamepads[1].get_button_map(6)))
-        #self.osd.add("MY MAP:", str(self.p.gamepad.deviceMap["sprint"]))
+        #self.osd.add("MY MAP:", str(self.playerController.gamepad.deviceMap["sprint"]))
         #self.osd.add("BUTTON STATE 6:", str(gamepads[0].get_button(6).state))
-        self.osd.add("stamina", "{:0.2f}".format(self.p.stamina))
+        self.osd.add("stamina", "{:0.2f}".format(self.playerController.stamina))
         self.osd.add("velocity", "{X:0.4f}/{Y:0.4f}/{Z:0.4f}".format(
-            X=self.p.actorNode.getPhysicsObject().getVelocity().getX(),
-            Y=self.p.actorNode.getPhysicsObject().getVelocity().getY(),
-            Z=self.p.actorNode.getPhysicsObject().getVelocity().getZ()))
-        if taskMgr.hasTaskNamed(self.p.idle_to_pause_task_name):
-            pause_task = taskMgr.getTasksNamed(self.p.idle_to_pause_task_name)[0]
+            X=self.playerController.actorNode.getPhysicsObject().getVelocity().getX(),
+            Y=self.playerController.actorNode.getPhysicsObject().getVelocity().getY(),
+            Z=self.playerController.actorNode.getPhysicsObject().getVelocity().getZ()))
+        if taskMgr.hasTaskNamed(self.playerController.getConfig("idle_to_pause_task_name")):
+            pause_task = taskMgr.getTasksNamed(self.playerController.getConfig("idle_to_pause_task_name"))[0]
             self.osd.add("pause in", "{:0.0f}".format(-pause_task.time))
-        self.osd.add("state", "{}".format(self.p.state))
-        self.osd.add("move vec", "{}".format(self.p.plugin_getMoveDirection()))
+        self.osd.add("state", "{}".format(self.playerController.state))
+        self.osd.add("move vec", "{}".format(self.playerController.plugin_getMoveDirection()))
 
         self.osd.render()
         return task.cont
