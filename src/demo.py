@@ -204,6 +204,9 @@ class Main(ShowBase):
             self.moveThroughBoxes.node().setIntoCollideMask(BitMask32(0x80))  # 1000 0000
             self.moveThroughBoxes.show()
 
+            self.accept("CharacterCollisions-in-Ghosts", print, ["ENTER"])
+            self.accept("CharacterCollisions-out-Ghosts", print, ["EXIT"])
+
             # Set the world
             self.world = base.cTrav
         #
