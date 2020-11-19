@@ -95,6 +95,7 @@ class Physics:
         self.foot_ray_id = "foot_ray_check"
         self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.main_node, True)
 
+        '''
         self.placed = False
         self.placer_a = loader.loadModel("models/zup-axis")
         self.placer_a.setScale(0.05)
@@ -102,7 +103,7 @@ class Physics:
         self.placer_b = loader.loadModel("models/zup-axis")
         self.placer_b.reparentTo(render)
         self.placer_b.setScale(0.05)
-
+        '''
 
     def startPhysics(self):
         """Start and set up the remaining physics parts of the character
@@ -123,7 +124,7 @@ class Physics:
         zB = self.getConfig("player_height") - r
         # actual setup of the characters body collision spheres
         self.charCollisions.node().addSolid(CollisionSphere(0, 0, zA, r))
-        #self.charCollisions.node().addSolid(CollisionSphere(0, 0, zB, r))
+        self.charCollisions.node().addSolid(CollisionSphere(0, 0, zB, r))
 
         self.charCollisions.node().setIntoCollideMask(self.body_mask)
         self.charCollisions.node().setFromCollideMask(self.body_mask)
@@ -135,7 +136,7 @@ class Physics:
 
         # Create the big sphere around the caracter which can be used for special events
         self.eventCollider = self.main_node.attachNewNode(CollisionNode(self.getConfig("char_collision_name")))
-        #self.eventCollider.node().addSolid(CollisionSphere(0, 0, self.getConfig("player_height")/2.0, self.getConfig("player_height")/2.0))
+        self.eventCollider.node().addSolid(CollisionSphere(0, 0, self.getConfig("player_height")/2.0, self.getConfig("player_height")/2.0))
         self.eventCollider.node().setIntoCollideMask(self.event_mask)
         self.eventCollider.node().setFromCollideMask(self.event_mask)
         if self.getConfig("show_collisions"):
@@ -456,9 +457,9 @@ class Physics:
                             moveVec.setZ(0)
                             moveVec *= -1
                             moveVec *= dt
-                            if not self.placed:
-                                self.placer_b.setPos(posR)
-                                self.placed = True
+                            #if not self.placed:
+                            #    self.placer_b.setPos(posR)
+                            #    self.placed = True
                             self.main_node.setFluidPos(self.main_node, moveVec)
                             self.toggleFlyMode(False)
                             return False
@@ -620,11 +621,14 @@ class Physics:
         # as we leave the ground set the active platform, if any, to None
         self.setActivePlatform(None)
 
+        # make sure we aren't in fly mode, otherwise we can't jump at all
+        self.toggleFlyMode(False)
+
         dt = globalClock.getDt()
         jumpVec = Vec3(
             jump_direction.getX()*dt,
             -((forwardSpeed*self.getConfig("jump_forward_force_mult"))+jump_direction.getY())*dt,
-            (self.getConfig("phys_jump_strength")+jump_direction.getZ())*dt)
+            (self.getConfig("phys_jump_strength")+jump_direction.getZ()))#*dt)
         jumpVec *= self.getConfig("jump_strength")
 
         # rotate the extraSpeedVector to face the same direction the main_node vector
@@ -642,22 +646,22 @@ class Physics:
         velZ = vel.getZ()
 
         # Make sure we don't jump/move faster than we are alowed to
-        #if abs(velX) > self.getConfig("max_jump_force_internal_X") \
-        #or abs(velY) > self.getConfig("max_jump_force_internal_Y"):
-        #    # we need to make sure X and Y are at the same distance
-        #    # as before otherwise jump direction will be shifted
-        #    if abs(velX) > abs(velY):
-        #        pass
-        #        #TODO: Calculate diff between x and y and subtract/add to respective other
-        #    if velX < 0:
-        #        velX = -self.getConfig("max_jump_force_internal_X")
-        #    else:
-        #        velX = self.getConfig("max_jump_force_internal_X")
-        #if abs(velY) > self.getConfig("max_jump_force_internal_Y"):
-        #    if velY < 0:
-        #        velY = -self.getConfig("max_jump_force_internal_Y")
-        #    else:
-        #        velY = self.getConfig("max_jump_force_internal_Y")
+        if abs(velX) > self.getConfig("max_jump_force_internal_X") \
+        or abs(velY) > self.getConfig("max_jump_force_internal_Y"):
+            # we need to make sure X and Y are at the same distance
+            # as before otherwise jump direction will be shifted
+            if abs(velX) > abs(velY):
+                pass
+                #TODO: Calculate diff between x and y and subtract/add to respective other
+            if velX < 0:
+                velX = -self.getConfig("max_jump_force_internal_X")
+            else:
+                velX = self.getConfig("max_jump_force_internal_X")
+        if abs(velY) > self.getConfig("max_jump_force_internal_Y"):
+            if velY < 0:
+                velY = -self.getConfig("max_jump_force_internal_Y")
+            else:
+                velY = self.getConfig("max_jump_force_internal_Y")
         if abs(velZ) > self.getConfig("max_jump_force_internal_Z"):
             if velZ < 0:
                 velZ = -self.getConfig("max_jump_force_internal_Z")
