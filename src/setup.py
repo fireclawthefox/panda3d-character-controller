@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="panda3d-character-controller",
-    version="20.11.test1",
+    version="20.11.1",
     author="Fireclaw",
     author_email="fireclawthefox@gmail.com",
     description="Extensive character control system to be used with the Panda3D engine",
