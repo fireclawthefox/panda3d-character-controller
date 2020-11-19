@@ -238,14 +238,14 @@ class CameraThirdPerson:
             if self.core.hasSurfacePoint(entry):
                 # move the camera to the occurrence of the collision
                 pos = self.core.getSurfacePoint(entry, render)
-            wall_normal = None
-            if self.core.hasSurfaceNormal(entry):
-                # move the camera off of the wall in the direction the
-                # wall is facing
-                wall_normal = self.core.getSurfaceNormal(entry, render)
-                pos.setX(pos.getX() + wall_normal.getX()/2.0)
-                pos.setY(pos.getY() + wall_normal.getY()/2.0)
             if pos is not None:
+                wall_normal = None
+                if self.core.hasSurfaceNormal(entry):
+                    # move the camera off of the wall in the direction the
+                    # wall is facing
+                    wall_normal = self.core.getSurfaceNormal(entry, render)
+                    pos.setX(pos.getX() + wall_normal.getX()/2.0)
+                    pos.setY(pos.getY() + wall_normal.getY()/2.0)
                 had_ray_collision = True
                 if self.ival_move_cam is None or self.ival_move_cam.isStopped():
                     offset_z = pos.getZ() - self.cam_floater.getZ(render)
