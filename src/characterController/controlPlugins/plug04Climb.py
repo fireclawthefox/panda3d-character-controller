@@ -287,6 +287,7 @@ class Plugin(DirectObject):
         self.setInitialPosition(self.climb_area_entry)
         self.core.rotation = None
         self.core.toggleFlyMode(True)
+        self.core.resetAfterJump()
 
         #
         # CLIMB LOGIC

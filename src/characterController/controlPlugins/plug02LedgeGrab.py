@@ -35,6 +35,7 @@ class Plugin:
         self.core = core
         self.do_ledge_grab = False
         self.request_idle = False
+        self.canInitiateGrab = True
 
         #
         # SETUP STATES
@@ -50,6 +51,7 @@ class Plugin:
         self.core.plugin_registerState(
             self.STATE_LEDGE_GRAB,[
                 self.core.STATE_FALL,
+                self.core.STATE_JUMP,
                 self.STATE_LEDGE_GRAB_UP,
                 self.STATE_LEDGE_GRAB_LEFT,
                 self.STATE_LEDGE_GRAB_RIGHT]
@@ -144,6 +146,9 @@ class Plugin:
         # "preload" all animations of the character
         self.core.bindAllAnims()
 
+    def __resetCanInitiateGrab(self, task):
+        self.canInitiateGrab = True
+
     def action(self, intel_action):
         #
         # LEDGE GRAB LOGIC
@@ -152,6 +157,12 @@ class Plugin:
         if self.request_idle:
             # check for the ledge grab up animation state
             ac = self.core.getAnimControl(self.LEDGE_GRAB_UP)
+
+            if not taskMgr.hasTaskNamed("resetCanGrab"):
+                # reset the can initialize grab after a short while
+                # This should be done whenever we leave ledge grab
+                taskMgr.doMethodLater(0.25, self.__resetCanInitiateGrab, "resetCanGrab")
+
             if ac.isPlaying():
                 # as long as it's playing we won't transition anywhere
                 # and do as we're still in normal ledge grab mode
@@ -292,10 +303,12 @@ class Plugin:
 
         elif ledge_collision is not None \
         and intel_action \
-        and self.core.state not in self.ledge_grab_states:
+        and self.core.state not in self.ledge_grab_states \
+        and self.canInitiateGrab:
             #
             # INITIATE LEDGE GRAB
             #
+            self.canInitiateGrab = False
             # only initiate a ledge grab if certain conditions are met
             ledge_normal = None
             if self.core.hasSurfaceNormal(ledge_collision):
@@ -311,10 +324,17 @@ class Plugin:
                     self.do_ledge_grab = True
         if self.do_ledge_grab:
             self.core.toggleFlyMode(True)
+            self.core.resetAfterJump()
             self.core.rotation = None
             vec = self.core.plugin_getMoveDirection()
             vec.setY(0)
             self.core.plugin_setMoveDirection(vec)
+        else:
+            if not taskMgr.hasTaskNamed("resetCanGrab"):
+                # reset the can initialize grab after a short while
+                # This should be done whenever we leave ledge grab
+                taskMgr.doMethodLater(0.25, self.__resetCanInitiateGrab, "resetCanGrab")
+
         return self.do_ledge_grab
 
     def useStamina(self):
