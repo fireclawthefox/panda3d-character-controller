@@ -100,7 +100,9 @@ class Physics:
         self.foot_ray_id = "foot_ray_check"
         self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.main_node, True)
 
-        self.placed = False
+        '''
+        # Enable for debugging positions
+        # just place whenever and wherever needed
         self.placer_a = loader.loadModel("models/zup-axis")
         self.placer_a.setScale(0.05)
         self.placer_a.setColorScale(1,0,0,1)
@@ -113,6 +115,7 @@ class Physics:
         self.placer_c.reparentTo(render)
         self.placer_c.setScale(0.05)
         self.placer_c.setColorScale(0,0,1,1)
+        '''
 
     def startPhysics(self):
         """Start and set up the remaining physics parts of the character
@@ -664,7 +667,7 @@ class Physics:
         charVec.normalize()
         rotatedExtraSpeedVec = charVec * extraSpeedVec.length()
 
-        jumpVec += rotatedExtraSpeedVec*dt
+        jumpVec += rotatedExtraSpeedVec
 
         self.actorNode.getPhysicsObject().addLocalImpulse(jumpVec)
 

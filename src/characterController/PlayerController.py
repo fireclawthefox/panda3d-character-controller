@@ -657,10 +657,8 @@ class PlayerController(FSM, Config, Physics, Actor, Mover, Animator):
             max_cam_shake_force = self.getConfig("cam_shake_max_landing_force")
             if state is self.STATE_LAND:
                 shake = max(self.landing_force.getZ(), -max_cam_shake_force)
-                #print(shake)
                 shake = shake / max_cam_shake_force
                 shake = shake * self.getConfig("cam_shake_max_strenght")
-                #print(shake)
                 self.camera_handler.camShakeNod(shake)
 
     def plugin_getRequestedNewState(self):
