@@ -49,6 +49,8 @@ class Mover:
 
         self.jump_direction = Vec3(0, 0, 0)
 
+        self.last_platform_speed = Vec3(0)
+
     def startControl(self):
         """Start the control module"""
         taskMgr.add(self.move, "task_movement", priority=-15)
@@ -79,6 +81,7 @@ class Mover:
                 self.current_accleration = 0.0
         self.setConfig("jump_strength", self.getConfig("jump_strength_default"))
         self.jump_direction = Vec3(0, 0, 0)
+        self.last_platform_speed = Vec3(0, 0, 0)
 
     def move(self, task):
         """The main task for updating the players position according
@@ -313,6 +316,7 @@ class Mover:
             if self.last_platform_position is None:
                 self.last_platform_position = platformPositionAbsolute
             platform_speed = platformPositionAbsolute - self.last_platform_position
+            self.last_platform_speed = platform_speed
             self.last_platform_position = platformPositionAbsolute
 
             if self.getConfig("respect_platform_rotation"):
@@ -347,12 +351,9 @@ class Mover:
                     self.land()
                 self.is_first_jump = False
                 if self.getConfig("platform_movement_affects_jump"):
-                    #TODO: Check if we need to store the platform speed separately. We might reset the platform speed
-                    #      every frame currently.
-                    self.doJump(forward_speed, self.jump_direction, platform_speed / self.dt)
+                    self.doJump(forward_speed, self.jump_direction, self.last_platform_speed/self.dt)
+                    self.last_platform_speed = Vec3(0)
                 else:
-                    # Why did I had to put this here? self.land kinda breaks jump functionality
-                    #self.land()
                     self.doJump(forward_speed, self.jump_direction)
 
         #

@@ -649,12 +649,18 @@ class Physics:
         with the upward speed given in jumpForce and forward given in speed.
         Note, if the actorNode shouldn't slide after landing call the
         physics.land function with the same actorNode"""
+        #
+        # Reset stuff
+        #
         # as we leave the ground set the active platform, if any, to None
         self.setActivePlatform(None)
 
         # make sure we aren't in fly mode, otherwise we can't jump at all
         self.toggleFlyMode(False)
 
+        #
+        # Jump vector calculation
+        #
         dt = globalClock.getDt()
         jumpVec = Vec3(
             jump_direction.getX()*dt,
@@ -662,15 +668,22 @@ class Physics:
             (self.getConfig("phys_jump_strength")+jump_direction.getZ()))#*dt)
         jumpVec *= self.getConfig("jump_strength")
 
-        # rotate the extraSpeedVector to face the same direction the main_node vector
-        charVec = self.main_node.getRelativeVector(render, extraSpeedVec)
-        charVec.normalize()
-        rotatedExtraSpeedVec = charVec * extraSpeedVec.length()
+        #
+        # Extra speed calculation
+        #
+        # rotate the extraSpeedVector to face the same direction the main_node
+        # does and add it to the jump vector
+        jumpVec += self.main_node.getRelativeVector(render, extraSpeedVec)
 
-        jumpVec += rotatedExtraSpeedVec
-
+        #
+        # Push the character
+        #
+        # now add the actual force to the characters physic node
         self.actorNode.getPhysicsObject().addLocalImpulse(jumpVec)
 
+        #
+        # Velocity checks
+        #
         vel = self.actorNode.getPhysicsObject().getVelocity()
         velX = vel.getX()
         velY = vel.getY()
@@ -702,6 +715,7 @@ class Physics:
         self.actorNode.getPhysicsObject().setVelocity(velX, velY, velZ)
 
     def land(self):
+        """Reset velocities of the characters physic node"""
         self.actorNode.getPhysicsObject().setVelocity(0,0,0)
 
     def setActivePlatform(self, platform):
