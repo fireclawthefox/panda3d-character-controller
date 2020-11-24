@@ -114,12 +114,13 @@ class CameraThirdPerson:
 
         # check if the camera should be centered
         if cam_center:
-            # show a letter box when centering the camera
-            if base.transitions.letterboxIval:
-                if not base.transitions.letterboxIval.isPlaying():
+            if self.core.getConfig("cam_show_center_letterbox"):
+                # show a letter box when centering the camera
+                if base.transitions.letterboxIval:
+                    if not base.transitions.letterboxIval.isPlaying():
+                        base.transitions.letterboxOn(0.15)
+                else:
                     base.transitions.letterboxOn(0.15)
-            else:
-                base.transitions.letterboxOn(0.15)
             self.centerCamera()
             return task.cont
 
@@ -190,37 +191,27 @@ class CameraThirdPerson:
             self.last_platform_rotation_cam = None
 
         # Get the cameras current offset to the player model on the z-axis
-        offsetZ = camera.getZ(render) - self.cam_floater.getZ(render)
+        offset_z = camera.getZ(render) - self.cam_floater.getZ(render)
         # check if the camera is within the min and max z-axis offset
-        if offsetZ < self.core.getConfig("min_cam_height_distance"):
+        if offset_z < self.core.getConfig("min_cam_height_distance"):
             # the cam is to low, so move it up
             camera.setZ(self.cam_floater.getZ(render) + self.core.getConfig("min_cam_height_distance"))
-            offsetZ = self.core.getConfig("min_cam_height_distance")
-        elif offsetZ > self.core.getConfig("max_cam_height_distance"):
+            offset_z = self.core.getConfig("min_cam_height_distance")
+        elif offset_z > self.core.getConfig("max_cam_height_distance"):
             # the cam is to high, so move it down
             camera.setZ(self.cam_floater.getZ(render) + self.core.getConfig("max_cam_height_distance"))
-            offsetZ = self.core.getConfig("max_cam_height_distance")
+            offset_z = self.core.getConfig("max_cam_height_distance")
 
         # lazy camera positioning
         # if we are not moving up or down, set the cam to an average position
-        if offsetZ > self.core.getConfig("cam_height_avg_up"):
+        if offset_z > self.core.getConfig("cam_height_avg_up"):
             # the cam is higher then the average cam height above the player
             # so move it slowly down
             camera.setZ(camera.getZ(render) - self.core.getConfig("cam_z_justification_speed") * globalClock.getDt())
-            newOffsetZ = camera.getZ(render) - self.cam_floater.getZ()
-            # check if the cam has reached the desired offset
-            #if newOffsetZ < self.core.getConfig("cam_height_avg_down"):
-            #    # set the cam z position to exactly the desired offset
-            #    camera.setZ(self.cam_floater.getZ(render) + self.core.getConfig("cam_height_avg_down"))
-        elif offsetZ < self.core.getConfig("cam_height_avg_down"):
+        elif offset_z < self.core.getConfig("cam_height_avg_down"):
             # the cam is lower then the average cam height above the player
             # so move it slowly up
             camera.setZ(camera.getZ() + self.core.getConfig("cam_z_justification_speed") * globalClock.getDt())
-            newOffsetZ = camera.getZ() - self.cam_floater.getZ(render)
-            # check if the cam has reached the desired offset
-            #if newOffsetZ > self.core.getConfig("cam_height_avg_up"):
-            #    # set the cam z position to exactly the desired offset
-            #    camera.setZ(self.cam_floater.getZ(render) + self.core.getConfig("cam_height_avg_up"))
 
         # If the camera is to far from player start following
         if camdist > self.core.getConfig("max_cam_distance"):
@@ -249,10 +240,10 @@ class CameraThirdPerson:
                 had_ray_collision = True
                 if self.ival_move_cam is None or self.ival_move_cam.isStopped():
                     offset_z = pos.getZ() - self.cam_floater.getZ(render)
-                    if offsetZ < self.core.getConfig("min_cam_height_distance"):
+                    if offset_z < self.core.getConfig("min_cam_height_distance"):
                         # the position is to low, so move it up
                         pos.setZ(self.cam_floater.getZ(render) + self.core.getConfig("min_cam_height_distance"))
-                    elif offsetZ > self.core.getConfig("max_cam_height_distance"):
+                    elif offset_z > self.core.getConfig("max_cam_height_distance"):
                         # the position is to high, so move it down
                         pos.setZ(self.cam_floater.getZ(render) + self.core.getConfig("max_cam_height_distance"))
 
@@ -262,7 +253,6 @@ class CameraThirdPerson:
 
                     self.ival_move_cam = camera.posInterval(duration, pos)
                     self.ival_move_cam.start()
-                #camera.setPos(pos)
             self.core.clearFirstCollisionEntryOfRay(self.cam_ray)
 
         # If player is to close move the camera backwards
@@ -291,7 +281,6 @@ class CameraThirdPerson:
         posA = self.cam_floater.getPos()
         posB = self.cam_floater.getPos()
         posA.setZ(posA.getZ() - distance)
-        #posB.setZ(posB.getZ() + distance*0.05)
         ivalA = self.cam_floater.posInterval(0.25, posA)
         ivalB = self.cam_floater.posInterval(0.15, posB)
         ivalC = self.cam_floater.posInterval(0.05, Vec3(tuple(self.core.getConfig("cam_floater_pos"))))
