@@ -36,6 +36,7 @@ class Plugin:
         self.active = True
 
     def action(self, intel_action):
+        if not self.core.getConfig("wall_avoidance_enable"): return
         #
         # FRONT WALL COLLISION AVOIDANCE
         #

@@ -238,6 +238,8 @@ class Plugin(DirectObject):
         self.core.bindAllAnims()
 
     def action(self, intel_action):
+        if not self.core.getConfig("climb_enabled"): return
+
         # check if we want to request to transition to the idle animation
         if self.request_idle:
             # check for the climb exit up animation state
