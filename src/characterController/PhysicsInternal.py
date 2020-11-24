@@ -58,6 +58,9 @@ class Physics:
         self.futureCTrav = CollisionTraverser("collision traverser for future position tests")
         if self.getConfig("show_collisions"):
             self.futureCTrav.showCollisions(render)
+        self.stepCTrav = CollisionTraverser("collision traverser step up detection")
+        if self.getConfig("show_collisions"):
+            self.stepCTrav.showCollisions(render)
         self.physics_pusher = PhysicsCollisionHandler()
         self.physics_pusher.addInPattern('%fn-in')
         self.physics_pusher.addOutPattern('%fn-out')
@@ -69,6 +72,8 @@ class Physics:
         self.collisionevent_handler.addOutPattern('%fn-out-%in')
         self.collisionevent_handler.addInPattern('%fn-in')
         self.collisionevent_handler.addOutPattern('%fn-out')
+
+        self.char_collision_queue_handler = CollisionHandlerQueue()
 
         self.event_mask = BitMask32(0x80)  #1000 0000
         self.body_mask = BitMask32(0x70)  #0111 0000
@@ -91,19 +96,23 @@ class Physics:
         self.ray_ids = []
         self.ignore_ray_cycle = []
         point_a = Point3(0, 0, self.getConfig("player_height")/1.8)
-        point_b = Point3(0, 0, -self.getConfig("stepheight"))
+        point_b = Point3(0, 0, -self.getConfig("stepheight_down"))
         self.foot_ray_id = "foot_ray_check"
         self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.main_node, True)
 
-        '''
         self.placed = False
         self.placer_a = loader.loadModel("models/zup-axis")
         self.placer_a.setScale(0.05)
+        self.placer_a.setColorScale(1,0,0,1)
         self.placer_a.reparentTo(self.main_node)
         self.placer_b = loader.loadModel("models/zup-axis")
         self.placer_b.reparentTo(render)
         self.placer_b.setScale(0.05)
-        '''
+        self.placer_b.setColorScale(0,1,0,1)
+        self.placer_c = loader.loadModel("models/zup-axis")
+        self.placer_c.reparentTo(render)
+        self.placer_c.setScale(0.05)
+        self.placer_c.setColorScale(0,0,1,1)
 
     def startPhysics(self):
         """Start and set up the remaining physics parts of the character
@@ -133,6 +142,7 @@ class Physics:
             self.charCollisions.show()
         self.physics_pusher.addCollider(self.charCollisions, self.main_node)
         base.cTrav.addCollider(self.charCollisions, self.physics_pusher)
+        self.stepCTrav.addCollider(self.charCollisions, self.char_collision_queue_handler)
 
         # Create the big sphere around the caracter which can be used for special events
         self.eventCollider = self.main_node.attachNewNode(CollisionNode(self.getConfig("char_collision_name")))
@@ -141,7 +151,8 @@ class Physics:
         self.eventCollider.node().setFromCollideMask(self.event_mask)
         if self.getConfig("show_collisions"):
             self.eventCollider.show()
-        base.cTrav.addCollider(self.eventCollider, self.collisionevent_handler)
+        if self.getConfig("event_collision_enabled"):
+            base.cTrav.addCollider(self.eventCollider, self.collisionevent_handler)
 
         self.accept("charBody-in", self.checkInBodyContact)
         self.accept("charBody-out", self.checkOutBodyContact)
@@ -427,6 +438,26 @@ class Physics:
 
             shiftZ = 0
 
+            if self.getConfig("do_step_up_check"):
+                #
+                # In this section we are going to check if the character should
+                # move up on stairs. For this we need to gather all collision
+                # points that have occured with the characters body collisions
+                #
+                self.stepCTrav.traverse(render)
+                entries = self.char_collision_queue_handler.getEntries()
+                for collision in entries:
+                    if collision.hasSurfacePoint():
+                        newPos = collision.getSurfacePoint(self)
+                        # chec if the found collision is within the range of a step
+                        if newPos.getZ() >= self.getConfig("stepheight_min_up") and newPos.getZ() <= self.getConfig("stepheight_max_up"):
+                            # move up a tiny bit, so we won't stuck in the ground
+                            newPos.setZ(newPos.getZ() + 0.2)
+                            # also move forward by the given amount so we won't fall off of the step right away
+                            newPos.setY(newPos.getY() - self.getConfig("step_up_forward_distance"))
+                            self.main_node.setFluidPos(self.main_node, newPos)
+                            return True
+
             if char_step_collision is None:
                 # check for additianal collisions with the char sphere or
                 # any other solids that serve as "stand on ground" check
@@ -457,9 +488,6 @@ class Physics:
                             moveVec.setZ(0)
                             moveVec *= -1
                             moveVec *= dt
-                            #if not self.placed:
-                            #    self.placer_b.setPos(posR)
-                            #    self.placed = True
                             self.main_node.setFluidPos(self.main_node, moveVec)
                             self.toggleFlyMode(False)
                             return False

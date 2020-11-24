@@ -148,6 +148,12 @@ class Mover:
             # a given minimum of jump time
             self.do_jump = self.do_jump or self.cur_jump_press_time <= self.getConfig("min_jump_press_time")
 
+        if self.state in self.prevent_jump_states:
+            if self.prev_state not in self.flying_states:
+                self.do_jump = False
+                self.land()
+                self.doStep()
+
         # check if any key to move the character has been pressed.
         # Do this by checking if the movement Vec has been set.
         self.move_key_pressed = self.plugin_getMoveDirection() != Vec3()

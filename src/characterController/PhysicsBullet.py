@@ -50,7 +50,7 @@ class Physics:
 
         self.raylist = {}
         point_a = Point3(0, 0, self.getConfig("player_height")/1.8)
-        point_b = Point3(0, 0, -self.getConfig("stepheight"))
+        point_b = Point3(0, 0, -self.getConfig("stepheight_down"))
         self.foot_ray_id = "foot_ray_check"
         self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.main_node)
 

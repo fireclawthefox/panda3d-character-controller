@@ -47,7 +47,7 @@ class Plugin:
             self.STATE_LEDGE_GRAB_RIGHT,
             self.STATE_LEDGE_GRAB_UP]
 
-        # register the wall run states
+        # register the ledge grab states
         self.core.plugin_registerState(
             self.STATE_LEDGE_GRAB,[
                 self.core.STATE_FALL,
@@ -63,7 +63,8 @@ class Plugin:
             self.STATE_LEDGE_GRAB_UP,
             ["*"],
             isFlying=True,
-            isPreventRotation=True)
+            isPreventRotation=True,
+            isPreventJump=True)
         self.core.plugin_registerState(
             self.STATE_LEDGE_GRAB_LEFT,[
                 self.core.STATE_FALL]
@@ -150,6 +151,7 @@ class Plugin:
         self.canInitiateGrab = True
 
     def action(self, intel_action):
+        if not self.core.getConfig("ledge_grab_enabled"): return
         #
         # LEDGE GRAB LOGIC
         #

@@ -130,6 +130,7 @@ class PlayerController(FSM, Config, Physics, Actor, Mover, Animator):
         self.ignore_input_states = []
         self.flying_states = []
         self.prevent_rotation_states = []
+        self.prevent_jump_states = []
 
         # physic control state groups
         self.prevent_slip_states = [
@@ -315,6 +316,7 @@ class PlayerController(FSM, Config, Physics, Actor, Mover, Animator):
         self.setBlend(frameBlend=self.getConfig("enable_interpolation"))
         logging.info("INIT FSM...")
         FSM.__init__(self, "FSM-Player")
+        self.prev_state = None
 
         #
         # Init camera mode and respective animations
@@ -607,7 +609,7 @@ class PlayerController(FSM, Config, Physics, Actor, Mover, Animator):
         self.camera_handler.resumeCamera()
         self.doStep()
 
-    def plugin_registerState(self, state, toTransitionStates=[], fromTransitionStates=[], isOnGround=False, isFlying=False, isIgnoreInput=False, fromAnyState=False, isPreventRotation=False):
+    def plugin_registerState(self, state, toTransitionStates=[], fromTransitionStates=[], isOnGround=False, isFlying=False, isIgnoreInput=False, fromAnyState=False, isPreventRotation=False, isPreventJump=False):
         """Register a new state for the player FSM given the state name,
         a list of states, to which this new state can transit to as well
         as a list of states, from which the player can transit to the
@@ -638,6 +640,9 @@ class PlayerController(FSM, Config, Physics, Actor, Mover, Animator):
         if isPreventRotation:
             self.prevent_rotation_states.append(state)
 
+        if isPreventJump:
+            self.prevent_jump_states.append(state)
+
     def plugin_addStateTransition(self, state, transitions):
         """This function will add the given transition states to the
         passed transition"""
@@ -658,6 +663,7 @@ class PlayerController(FSM, Config, Physics, Actor, Mover, Animator):
         return self.plugin_defined_character_state
 
     def enterNewState(self):
+        self.prev_state = self.state
         if self.plugin_defined_character_state is not None:
             self.request(self.plugin_defined_character_state)
         self.plugin_defined_character_state = None
