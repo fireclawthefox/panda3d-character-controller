@@ -4,7 +4,7 @@
 import json
 
 from panda3d.core import KeyboardButton, MouseButton, ButtonHandle, Point3F, Vec3
-from panda3d.core import InputDevice
+from panda3d.core import InputDevice, Filename
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -31,8 +31,9 @@ class Config:
     fit with characters created with measurements as 1 unit = 1 meter
     """
     def __init__(self, configFile):
-
-        with open(configFile) as json_data_file:
+        # Make sure, the given path is in the correct form
+        osSpecificConfigPath = Filename(configFile).toOsSpecific()
+        with open(osSpecificConfigPath) as json_data_file:
             self.config = json.load(json_data_file)
 
         self.used_device = None
@@ -50,5 +51,7 @@ class Config:
         self.config[configString] = value
 
     def saveConfig(self, configFile):
-        with open(configFile) as json_data_file:
+        # Make sure, the given path is in the correct form
+        osSpecificConfigPath = Filename(configFile).toOsSpecific()
+        with open(osSpecificConfigPath) as json_data_file:
             json.dump(self.config, json_data_file)
