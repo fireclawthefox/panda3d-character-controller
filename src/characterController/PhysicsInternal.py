@@ -176,7 +176,6 @@ class Physics:
 
         self.charFutureCollisions = render.attachNewNode(CollisionNode("charFutureBody"))
         self.charFutureCollisions.node().addSolid(CollisionSphere(0, 0, self.getConfig("player_height")/2.0, self.getConfig("player_height")/4.0))
-        #self.charFutureCollisions.node().addSolid(CollisionSphere(0, 0, self.getConfig("player_height")/4.0*3.05, self.getConfig("player_height")/4.0))
         self.charFutureCollisions.node().setIntoCollideMask(BitMask32.allOff())
         self.charFutureCollisions.node().setFromCollideMask(self.body_mask)
         if self.getConfig("show_collisions"):
@@ -685,6 +684,7 @@ class Physics:
         # Velocity checks
         #
         vel = self.actorNode.getPhysicsObject().getVelocity()
+        #TODO: This portion can be shared
         velX = vel.getX()
         velY = vel.getY()
         velZ = vel.getZ()
@@ -711,6 +711,7 @@ class Physics:
                 velZ = -self.getConfig("max_jump_force_internal_Z")
             else:
                 velZ = self.getConfig("max_jump_force_internal_Z")
+        #TODO: This portion can be shared END
 
         self.actorNode.getPhysicsObject().setVelocity(velX, velY, velZ)
 

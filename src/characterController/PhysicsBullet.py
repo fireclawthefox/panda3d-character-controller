@@ -11,12 +11,17 @@ import math
 #
 from panda3d.core import (
     Point3,
-    BitMask32,
+    Vec3,
     NodePath,
-    Vec3)
+    BitMask32,
+    ModelRoot,
+    TransformState,
+    )
 from panda3d.bullet import (
     BulletCapsuleShape,
-    BulletRigidBodyNode)
+    BulletSphereShape,
+    BulletRigidBodyNode,
+    BulletGhostNode)
 
 __author__ = "Fireclaw the Fox"
 __license__ = """
@@ -36,71 +41,188 @@ class Physics:
             self.parent = parent
 
     def __init__(self):
-        # setup the capsule that surrounds the player
-        self.player_capsule = BulletCapsuleShape(self.getConfig("player_radius"), self.getConfig("player_height")/2.0)
-        self.base_z_off = self.getConfig("player_height")/2.0
 
-        self.setActivePlatform(None)
+        self.char_collision_dict = {}
 
         self.event_mask = BitMask32(0x80)  #1000 0000
         self.body_mask = BitMask32(0x70)  #0111 0000
         self.ray_mask = BitMask32(0x0f)  #0000 1111
 
         self.ignore_step = False
+        self.customP = False
+
+        self.pre_set_platform = False
+
+        self.landing_force = None
+
+        self.setActivePlatform(None)
 
         self.raylist = {}
+        self.ray_ids = []
+        self.ignore_ray_cycle = []
         point_a = Point3(0, 0, self.getConfig("player_height")/1.8)
         point_b = Point3(0, 0, -self.getConfig("stepheight_down"))
         self.foot_ray_id = "foot_ray_check"
-        self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.main_node)
+        self.registerRayCheck(self.foot_ray_id, point_a, point_b, self.main_node, True)
+
+        self.bodyCollisionList = []
+        self.eventCollisionList = []
+
+        # Enable for debugging positions
+        # just place whenever and wherever needed
+        #self.placer_a = loader.loadModel("models/zup-axis")
+        #self.placer_a.setScale(0.05)
+        #self.placer_a.setColorScale(1,0,0,1)
+        #self.placer_a.reparentTo(self.main_node)
+        self.placer_b = loader.loadModel("models/zup-axis")
+        self.placer_b.reparentTo(render)
+        self.placer_b.setScale(0.05)
+        self.placer_b.setColorScale(0,1,0,1)
+        self.placer_c = loader.loadModel("models/zup-axis")
+        self.placer_c.reparentTo(render)
+        self.placer_c.setScale(0.05)
+        self.placer_c.setColorScale(0,0,1,1)
 
     def startPhysics(self):
         """Start and set up the remaining physics parts of the character
         Should be called at the character setup and base start method"""
-        capsule = BulletRigidBodyNode("Capsule")
-        capsule.addShape(self.player_capsule)
-        capsule.setKinematic(False)
-        capsule.setMass(self.getConfig("player_mass"))
-        self.physic_world.attachRigidBody(capsule)
-        self.player_capsule_np = NodePath(capsule)
-        self.player_capsule_np.setPos(0, 0, self.getConfig("player_height"))
-        self.player_capsule_np.setCollideMask(self.body_mask)
-        self.reparentTo(self.player_capsule_np)
-        self.setZ(-self.getConfig("player_height")/2.0)
-        self.player_capsule_np.reparentTo(render)
-        self.main_node = self.player_capsule_np
 
-        self.shadow_ray_id = "shadow_ray_check"
-        if self.shadow_ray_id not in self.raylist:
-            point_a = Point3(0, 0, self.getConfig("player_height")/1.8)
-            point_b = self.main_node.getPos()
-            point_b.setZ(point_b.getZ() - 10000)
-            self.registerRayCheck(self.shadow_ray_id, point_a, point_b, self.main_node)
+        # some calculations for position and size of the characters body collision spheres
+        self.characterBodySphereRadius = self.getConfig("player_height") / 4.0
+        r = self.characterBodySphereRadius
+        # bottom sphere
+        zA = r
+        # top sphere
+        zB = self.getConfig("player_height") - r
 
-        #self.should_jump = False
-        #self.jump_time = 0.0
+        # Main character spheres
+        self.charCollisions = BulletRigidBodyNode("charBody")
+        self.charCollisions.setKinematic(False)
+        self.charCollisions.setMass(1.0)#self.getConfig("player_mass"))
+        self.charCollisions.addShape(
+            BulletSphereShape(r),
+            TransformState.makePos((0,0,zA)))
+        self.charCollisions.addShape(
+            BulletSphereShape(r),
+            TransformState.makePos((0,0,zB)))
+        self.main_node = render.attachNewNode(self.charCollisions)
+        self.physic_world.attachRigidBody(self.charCollisions)
 
-        #taskMgr.add(self.updatePhysics, "task_physics", priority=-15)
+        self.charCollisions.setIntoCollideMask(self.body_mask)
+        self.charCollisions.setCcdMotionThreshold(1e-7)
+        self.charCollisions.setCcdSweptSphereRadius(r)
 
-    def registerRayCheck(self, ray_id, pos_a, pos_b, parent):
+        '''
+        # Create the big sphere around the caracter which can be used for special events
+        self.charEventCollisions = BulletGhostNode(self.getConfig("char_collision_name"))
+        self.eventCollider = self.main_node.attachNewNode(self.charEventCollisions)
+        self.charEventCollisions.addShape(
+            BulletSphereShape(self.getConfig("player_height")/2.0),
+            TransformState.makePos((0, 0, self.getConfig("player_height")/2.0)))
+        self.charEventCollisions.setIntoCollideMask(self.event_mask)
+        self.physic_world.attachGhost(self.charEventCollisions)
+        '''
+
+        self.accept("charBody-in", self.checkInBodyContact)
+        self.accept("charBody-out", self.checkOutBodyContact)
+        self.accept("{}-in".format(self.getConfig("char_collision_name")), self.checkCharCollisions)
+        self.accept("{}-out".format(self.getConfig("char_collision_name")), self.charOutCollisions)
+
+        if self.getConfig("use_simple_shadow"):
+            self.shadow_ray_id = "shadow_ray_check"
+            if self.shadow_ray_id not in self.raylist:
+                point_a = Point3(0, 0, self.getConfig("player_height")/1.8)
+                point_b = self.main_node.getPos()
+                point_b.setZ(point_b.getZ() - 10000)
+                self.registerRayCheck(self.shadow_ray_id, point_a, point_b, self.main_node)
+
+        self.reparentTo(self.main_node)
+
+        '''
+        shapeHolder = NodePath("Bullet Shape Holder")
+        shapeHolder.setZ(self.getConfig("player_height")/2.0)
+        shapeHolder.reparentTo(render)
+        self.charFutureCollisions = shapeHolder.attachNewNode(BulletRigidBodyNode("charFutureBody"))
+        self.charFutureCollisions.node().addShape(BulletSphereShape(self.getConfig("player_height")/4.0))
+        self.charFutureCollisions.node().setIntoCollideMask(self.body_mask)
+        '''
+
+    def registerRayCheck(self, ray_id, pos_a, pos_b, parent, ignore_ray_cycle=False):
         """This function will create a ray segment at the given position
         and attaches it to the given parent node. This has to be done
         for any ray check you want to do in the application."""
         r = self.Ray(pos_a, pos_b, parent)
         # store the ray for later usage
         self.raylist[ray_id] = r
+        if ignore_ray_cycle:
+            self.ignore_ray_cycle.append(ray_id)
+        if ray_id not in self.ignore_ray_cycle:
+            self.ray_ids.append(ray_id)
 
     def stopPhysics(self):
         """Stops the characters physics elements. Should be called at
         character cleanup"""
         #TODO: Cleanup
+        self.char_collision_dict = {}
         self.raylist = None
-        #taskMgr.remove("task_physics")
-        self.player_capsule_np.removeNode()
+        self.charCollisions.removeNode()
 
     def updatePhysics(self):
+        """This method must be called every frame to update collision contacts."""
+
         self.main_node.setP(0)
         self.main_node.setR(0)
+
+        self.charCollisions.setAngularVelocity((0,0,0))
+
+        # since bullet doesn't have a way to do it automatically, we have to
+        # check collisions and store them on our own to check when we hit
+        # something for the first time and whenever we lost a collision contact
+
+        # Check for Body contact
+        result = self.physic_world.contactTest(self.charCollisions, True)
+
+        lostContacts = self.bodyCollisionList
+
+        # check the new contacts
+        for contact in result.getContacts():
+            # check if we already had contact to this
+            if contact in self.bodyCollisionList:
+                # existing contact
+                lostContacts.reomve(contact)
+            else:
+                # new contact
+                self.bodyCollisionList.append(contact)
+                base.messenger.send("charBody-in", [contact])
+
+        # remove lost contacts from our list
+        for contact in lostContacts:
+            self.bodyCollisionList.remove(contact)
+            base.messenger.send("charBody-out", [contact])
+
+
+        '''
+        # Check for event sphere contact
+        result = self.physic_world.contactTest(self.eventCollider.node(), True)
+
+        lostContacts = self.eventCollisionList
+
+        # check the new contacts
+        for contact in result.getContacts():
+            # check if we already had contact to this
+            if contact in self.eventCollisionList:
+                # existing contact
+                lostContacts.reomve(contact)
+            else:
+                # new contact
+                self.eventCollisionList.append(contact)
+                base.messenger.send("{}-in".format(self.getConfig("char_collision_name")), [contact])
+
+        # remove lost contacts from our list
+        for contact in lostContacts:
+            self.eventCollisionList.remove(contact)
+            base.messenger.send("{}-out".format(self.getConfig("char_collision_name")), [contact])
+        '''
 
     def updateRayPositions(self, ray_id, point_a, point_b):
         """This method can be used to update the start and end position
@@ -108,7 +230,7 @@ class Physics:
         self.raylist[ray_id].point_a = point_a
         self.raylist[ray_id].point_b = point_b
 
-    def updatePlayerPos(self, speed, heading, dt, rotation=None, rotate_around_node=None, ignore_step=False):
+    def updatePlayerPos(self, speed, heading):
         """This function should be called to set the players new
         position and heading.
         speed determines the new position of the character.
@@ -116,27 +238,38 @@ class Physics:
         the camera and can be None.
         This function will process the stepping and dependend on that
         requests fall and landing states"""
+        #print(heading, speed)
         if heading is not None:
+            curH = self.main_node.getH()
             self.main_node.setH(camera, heading)
-            self.main_node.setP(0)
+            newH = self.main_node.getH()
+            self.main_node.setH(curH)
+            rotateToH = self.main_node.quatInterval(0.1, Point3(newH, 0, 0))
+            rotateToH.start()
+            if not self.customP:
+                self.main_node.setP(0)
             self.main_node.setR(0)
-        self.main_node.setPos(self.main_node, speed)
-        self.ignore_step = ignore_step
-        if not ignore_step:
-            if self.doStep(self.state == self.STATE_IDLE):
-                self.main_node.node().setAngularVelocity((0, 0, 0))
-                self.main_node.node().setLinearVelocity((0, 0, 0))
-                if self.state == self.STATE_JUMP or self.state == self.STATE_FALL:
-                    self.request(self.STATE_LAND)
-            elif self.state != self.STATE_JUMP \
-            and self.state != self.STATE_FALL \
-            and self.state != self.STATE_LEDGE_GRAB_UP:
-                self.request(self.STATE_FALL)
+            self.customP = False
 
-        if self.getConfig("use_simple_shadow"):
-            self.updateCharSimpleShadow()
+        speed = self.main_node.getRelativeVector(render, speed)
+        speed.setX(-speed.getX())
+        newPos = self.main_node.getPos() + speed
+        self.main_node.setPos(newPos)
+
+        if self.state not in self.ignore_step_states:
+            if self.doStep():
+                self.landing_force = self.main_node.node().getLinearVelocity()
+                if self.state not in self.on_ground_states:
+                    self.charCollisions.setAngularVelocity((0, 0, 0))
+                    self.charCollisions.setLinearVelocity((0, 0, 0))
+                    self.plugin_requestNewState(self.STATE_LAND)
+            elif self.state != self.STATE_JUMP and self.state != self.STATE_FALL:
+                self.plugin_requestNewState(self.STATE_FALL)
+
+        self.updateCharSimpleShadow()
 
     def updatePlayerPosFloating(self, speed):
+        return
         """This method will update the position of the player respecting
         the global directions rather then the players local direction,
         which is useful for example if the player gets moved by a
@@ -144,15 +277,19 @@ class Physics:
         move the player around."""
         newPos = self.main_node.getPos() + speed
         self.main_node.setPos(newPos)
+        self.updateCharSimpleShadow()
 
     def updatePlayerPosFix(self, position, relativeTo=None):
+        return
         """This method will place the character at the given position."""
         if relativeTo is not None:
             self.main_node.setPos(relativeTo, position)
         else:
             self.main_node.setPos(position)
+        self.updateCharSimpleShadow()
 
     def updatePlayerPosFloatingFlyign(self, speed):
+        return
         """This method will update the position of the player respecting
         the global directions rather then the players local direction,
         which is useful for example if the player gets moved by a
@@ -163,9 +300,12 @@ class Physics:
         physics are disabled"""
         newPos = self.main_node.getPos() + speed
         self.main_node.setPos(newPos)
+        self.updateCharSimpleShadow()
 
     def updatePlayerHpr(self, hpr):
         """Update the HPR value of the main player node"""
+        if hpr[1] != 0:
+            self.customP = True
         self.main_node.setHpr(hpr)
 
     def __getHprFloatingNewPos(self, rotation, parent):
@@ -200,6 +340,7 @@ class Physics:
         return new_pos
 
     def updatePlayerHprFloating(self, rotation, parent):
+        return
         """This method will update the player position according to the
         rotation around the given parent node.
         NOTE: this will currently only work with rotations around the
@@ -209,6 +350,7 @@ class Physics:
         self.main_node.setH(self.main_node.getH() + rotation)
 
     def updatePlayerHprFloatingFlying(self, rotation, parent):
+        return
         """This method will update the player position according to the
         rotation around the given parent node.
         NOTE: this will currently only work with rotations around the
@@ -218,36 +360,58 @@ class Physics:
         self.main_node.setH(self.main_node.getH() + rotation)
 
     def checkCharCollisions(self, args):
+        return
         """This method will be called each time a collision occures with
         the characters main collision solids. It will check stepping as
         well as check if the character should fall or just landed
         somewhere."""
-        if self.ignore_step:
+        if self.state in self.ignore_step_states:
             pass
-        elif self.doStep(self.state == self.STATE_IDLE):
+        elif self.doStep():
             if self.state == self.STATE_JUMP or self.state == self.STATE_FALL:
-                self.main_node.node().setAngularVelocity((0, 0, 0))
-                self.main_node.node().setLinearVelocity((0, 0, 0))
-                self.request(self.STATE_LAND)
-                return
+                self.landing_force = self.charCollisions.getLinearVelocity()
+                self.charCollisions.setAngularVelocity((0, 0, 0))
+                self.charCollisions.setLinearVelocity((0, 0, 0))
+                self.plugin_requestNewState(self.STATE_LAND)
         elif self.state != self.STATE_JUMP and self.state != self.STATE_FALL:
-            self.request(self.STATE_FALL)
-            return
+            self.plugin_requestNewState(self.STATE_FALL)
+        self.enterNewState()
+        base.messenger.send("plugin-character-in-collision", [collision])
+
+    def charOutCollisions(self, collision):
+        return
+        base.messenger.send("plugin-character-out-collision", [collision])
+
+    def checkInBodyContact(self, collision):
+        self.char_collision_dict[collision.getNode1().getName()] = collision
+
+    def checkOutBodyContact(self, collision):
+        return
+        """This method will be called each time the character doesn't
+        collide with a previous collided object anymore. It will remove
+        the collision from the objects checked when stepping."""
+        name = collision.getIntoNode().getName()
+        if name in self.char_collision_dict.keys():
+            del self.char_collision_dict[name]
+        else:
+            print("COULDN'T FIND", name)
 
     def checkFloatingPlatform(self, entry):
+        return
         if entry is not None:
             if entry.getName().startswith(self.getConfig("platform_collision_prefix")):
                 # we landed on a moving platform
                 p = render.find("**/%s"%entry.getName())
                 self.setActivePlatform(self.__findPlatformRoot(p))
+                self.pre_set_platform = True
 
-    def setActivePlatform(self, platform):
-        self.active_platform = platform
-
-    def getActivePlatform(self):
-        return self.active_platform
+    def cleanFloatingPlatform(self):
+        return
+        if not self.pre_set_platform:
+            self.setActivePlatform(None)
 
     def __findPlatformRoot(self, platform):
+        return
         """This method will find the root node of a floating platform
         which then may be used to update the characters position on that
         specific platform. This function will be called recursively."""
@@ -257,30 +421,94 @@ class Physics:
             return self.__findPlatformRoot(platform.getParent())
         return platform
 
-    def doStep(self, preventSlipping=False):
+    def doStep(self):
         """This method will process the characters downward stepping to
         prevent it from floating. It will also check if the character
         landed on a movable platform and set it as active platform.
         This function will return True whenever the character has been
-        stepped on the ground and Fals if there was no step"""
+        stepped on the ground and falls if there was no step"""
         if self.state not in self.ignore_step_states:
             # do the step height check
             char_step_collision = self.getFirstCollisionEntryInLine(self.foot_ray_id)
 
             # Check if we land on a movable platform
             groundNode = self.getFirstCollisionIntoNodeInLine(self.foot_ray_id)
+
+            # we're not interrested in extra character collisions if we have actual foot contact
+
+            shiftZ = 0
+
+            #TODO: Bullet specific changes need to be made from here
+            if self.getConfig("do_step_up_check"):
+                #
+                # In this section we are going to check if the character should
+                # move up on stairs. For this we need to gather all collision
+                # points that have occured with the characters body collisions
+                #
+                entries = self.physic_world.contactTest(self.charCollisions, True).getContacts()
+                for collision in entries:
+
+                    mpoint = collision.getManifoldPoint()
+
+                    newPos = mpoint.getPositionWorldOnB()
+                    self.placer_b.setPos(newPos)
+                    stepHeight = mpoint.getLocalPointB().getZ()
+                    if stepHeight >= self.getConfig("stepheight_min_up") and stepHeight <= self.getConfig("stepheight_max_up"):
+                        # move up a tiny bit, so we won't stuck in the ground
+                        newPos.setZ(newPos.getZ() + 0.2)
+                        # also move forward by the given amount so we won't fall off of the step right away
+                        #newPos.setY(newPos.getY() - self.getConfig("step_up_forward_distance"))
+                        self.main_node.setPos(newPos)
+                        return True
+
+            if char_step_collision is None:
+                # check for additianal collisions with the char sphere or
+                # any other solids that serve as "stand on ground" check
+                for key, collision in self.char_collision_dict.items():
+
+                    pos = collision.getManifoldPoint().getLocalPointB()
+                    dist = -(collision.getManifoldPoint().getDistance())
+                    # sometimes the calculated distance is in the wrong direction
+                    if dist < 0: continue
+                    shiftZ = dist
+                    if dist < self.getConfig("player_height")/100.0:
+                        char_step_collision = char_step_collision if char_step_collision is not None else collision
+                        groundNode = groundNode if groundNode is not None else collision.getNode1()
+                        break
+                    else:
+                        if dist > self.characterBodySphereRadius:
+                            # if the collisions are higher, we
+                            # probably collided with the upper
+                            # collision sphere of the player
+                            dist = self.characterBodySphereRadius
+
+                        dt = globalClock.getDt()
+                        moveVec = pos
+                        moveVec.setZ(0)
+                        moveVec *= -1
+                        moveVec *= dt
+
+
+                        moveVec = self.main_node.getRelativeVector(render, moveVec)
+                        moveVec.setX(-moveVec.getX())
+                        newPos = self.main_node.getPos() + moveVec
+                        self.main_node.setPos(newPos)
+
+                        #self.main_node.setPos(self.main_node, moveVec)
+                        self.toggleFlyMode(False)
+                        return False
+
+            self.clearFirstCollisionEntryOfRay(self.foot_ray_id)
+            self.cleanFloatingPlatform()
+            self.pre_set_platform = False
             if groundNode is not None:
                 if groundNode.getName().startswith(self.getConfig("platform_collision_prefix")):
                     # we landed on a moving platform
                     p = render.find("**/%s"%groundNode.getName())
                     self.setActivePlatform(self.__findPlatformRoot(p))
-                else:
-                    self.setActivePlatform(None)
-            else:
-                self.setActivePlatform(None)
 
             # prevent slipping
-            if preventSlipping and char_step_collision is not None:
+            if self.state in self.prevent_slip_states and char_step_collision is not None:
                 # get the angle of the part of the ground we currently
                 # stand on
                 floor_normal = self.getSurfaceNormal(char_step_collision, render)
@@ -300,41 +528,19 @@ class Physics:
                 if self.hasSurfacePoint(char_step_collision):
                     # place the character on the ground
                     pos = self.getSurfacePoint(char_step_collision, render)
-                    self.main_node.setZ(pos.getZ() + self.base_z_off)
+                    self.main_node.setFluidZ(pos.getZ() - shiftZ)
                     return True
             return False
-        #elif self.anRemoved and self.state not in self.flying_states:
-        #    self.toggleFlyMode(False)
-        elif self.state in self.ledge_grab_states:
-            # Check if we hang on a movable platform
-            ledge_node = self.getFirstCollisionIntoNodeInLine(self.ledge_detect_ray)
-            if ledge_node is not None:
-                if ledge_node.getName().startswith(self.getConfig("platform_collision_prefix")):
-                    # we do hang on a moving platform
-                    p = render.find("**/%s"%ledge_node.getName())
-                    self.setActivePlatform(self.__findPlatformRoot(p))
-                else:
-                    self.setActivePlatform(None)
-            else:
-                self.setActivePlatform(None)
-            return True
+        elif self.anRemoved and self.state not in self.flying_states:
+            self.toggleFlyMode(False)
         self.setActivePlatform(None)
         return False
 
     def toggleFlyMode(self, flyActive):
         """Dis- and Enable the physic effects on the character to give
         him the possibility to fly."""
-        #TODO: Bullet specific code
-        #if flyActive:
-        #    if not self.anRemoved:
-        #        self.anRemoved = True
-        #        self.actorNode.getPhysicsObject().setVelocity(0,0,0)
-        #        base.physicsMgr.removePhysicalNode(self.actorNode)
-        #else:
-        #    if self.anRemoved:
-        #        self.anRemoved = False
-        #        base.physicsMgr.attachPhysicalNode(self.actorNode)
-        pass
+        #self.charCollisions.setKinematic(flyActive)
+        self.charCollisions.setKinematic(False)
 
     def hasSurfacePoint(self, entry):
         return entry.hasHit()
@@ -348,6 +554,9 @@ class Physics:
     def getSurfaceNormal(self, entry, np):
         return entry.getHitNormal()
 
+    def getFallForce(self):
+        return self.charCollisions.getLinearVelocity().getZ()
+
     def getFirstCollisionEntryInLine(self, ray_id):
         """A simple raycast check which will return the collision entry
         of the first collision point as seen from the previously
@@ -359,6 +568,10 @@ class Physics:
         if result.hasHit():
             return result
         return None
+
+    def clearFirstCollisionEntryOfRay(self, ray_id):
+        """Not necessary for Bullet physics collision system"""
+        pass
 
     def getFirstCollisionIntoNodeInLine(self, ray_id):
         """A simple raycast check which will return the into node of the
@@ -376,15 +589,19 @@ class Physics:
         ID"""
         entry = self.getFirstCollisionEntryInLine(ray_id)
         if entry is None: return None
-        pos = entry.getHitPos()
+        pos = None
+        if entry.hasHit():
+            pos = entry.getHitPos()
         return pos
 
     def checkFutureCharSpace(self, new_position):
+        return True
         """Check if there is enough space at the new position to place
         the character on. If so, this function will return True
         otherwise it will return False"""
         if new_position is None: return False
-        #self.charFutureCollisions.setPos(new_position)
+        #TODO: Implement the bullet way
+        self.charFutureCollisions.setPos(new_position)
         #self.futureCTrav.traverse(render)
         #if self.charFutureCollisionsQueue.getNumEntries() > 0:
         #    return False
@@ -396,14 +613,16 @@ class Physics:
         return self.base_z_off
 
     def updateCharSimpleShadow(self):
+        return
         """This function will update the simple shadow image below the
         character. It will synch it's position with the player as well
         as calculate it's size when the player is further away from the
         shadow/ground"""
+        if not self.getConfig("use_simple_shadow"): return
         self.raylist[self.shadow_ray_id].point_a = self.main_node.getPos()
         pos = self.getFirstCollisionInLine(self.shadow_ray_id)
         if pos is not None:
-            self.shadow.setPos(pos.getX(), pos.getY(), pos.getZ() + 0.05)
+            self.shadow.setPos(pos.getX(), pos.getY(), pos.getZ() + self.getConfig("shadow_z_offset"))
             z_a = pos.getZ()
             z_b = self.main_node.getZ()
             dist = z_b - z_a
@@ -420,32 +639,90 @@ class Physics:
                     scale = self.getConfig("max_shadow_scale")
                 self.shadow.setScale(scale)
 
-    def processJumping(self, dt):
-        self.jump_time += dt
-        self.player_capsule_np.setZ(
-            self.player_capsule_np,
-            self.getConfig("jump_strength") * self.jump_time)
-        if self.jump_time > 0.5:
-            self.should_jump = False
-            self.jump_time = 0.0
-        #if self.__currentPos.z >= self.jumpMaxHeight:
-        #    self.__fall()
-
-    def doJump(self, forwardSpeed, extraSpeedVec=Vec3()):
+    def doJump(self, forwardSpeed, jump_direction=Vec3(0,0,0), extraSpeedVec=Vec3()):
+        return
         """This will let the actor node jump forward on the local y-axis
         with the upward speed given in jumpForce and forward given in speed.
         Note, if the actorNode shouldn't slide after landing call the
         physics.land function with the same actorNode"""
+        #
+        # Reset stuff
+        #
         # as we leave the ground set the active platform, if any, to None
         self.setActivePlatform(None)
-        jumpVec = Vec3(0, -forwardSpeed/self.current_max_accleration*self.getConfig("jump_forward_force_mult"), 1)
+
+        # make sure we aren't in fly mode, otherwise we can't jump at all
+        self.toggleFlyMode(False)
+
+        #
+        # Jump vector calculation
+        #
+        dt = globalClock.getDt()
+        jumpVec = Vec3(
+            jump_direction.getX()*dt,
+            -((forwardSpeed*self.getConfig("jump_forward_force_mult"))+jump_direction.getY())*dt,
+            (self.getConfig("phys_jump_strength")+jump_direction.getZ()))#*dt)
         jumpVec *= self.getConfig("jump_strength")
 
-        # rotate the extraSpeedVector to face the same direction the main_node vector
-        charVec = self.main_node.getRelativeVector(render, extraSpeedVec)
-        charVec.normalize()
-        rotatedExtraSpeedVec = charVec * extraSpeedVec.length()
+        #
+        # Extra speed calculation
+        #
+        # rotate the extraSpeedVector to face the same direction the main_node
+        # does and add it to the jump vector
+        jumpVec += self.main_node.getRelativeVector(render, extraSpeedVec)
 
-        jumpVec += rotatedExtraSpeedVec
-        #self.player_capsule_np.node().applyCentralImpulse(jumpVec)
-        self.player_capsule_np.node().applyCentralForce(jumpVec)
+        #
+        # Push the character
+        #
+        # now add the actual force to the characters physic node
+        #TODO: Which one is correct?
+        #self.charCollisions.applyCentralImpulse(jumpVec)
+        self.charCollisions.applyCentralForce(jumpVec)
+
+        #
+        # Velocity checks
+        #
+        #TODO: Check for the right function
+        vel = self.charCollisions.getLinearVelocity()
+        #TODO: This portion can be shared
+        velX = vel.getX()
+        velY = vel.getY()
+        velZ = vel.getZ()
+
+        # Make sure we don't jump/move faster than we are alowed to
+        if abs(velX) > self.getConfig("max_jump_force_internal_X") \
+        or abs(velY) > self.getConfig("max_jump_force_internal_Y"):
+            # we need to make sure X and Y are at the same distance
+            # as before otherwise jump direction will be shifted
+            if abs(velX) > abs(velY):
+                pass
+                #TODO: Calculate diff between x and y and subtract/add to respective other
+            if velX < 0:
+                velX = -self.getConfig("max_jump_force_internal_X")
+            else:
+                velX = self.getConfig("max_jump_force_internal_X")
+        if abs(velY) > self.getConfig("max_jump_force_internal_Y"):
+            if velY < 0:
+                velY = -self.getConfig("max_jump_force_internal_Y")
+            else:
+                velY = self.getConfig("max_jump_force_internal_Y")
+        if abs(velZ) > self.getConfig("max_jump_force_internal_Z"):
+            if velZ < 0:
+                velZ = -self.getConfig("max_jump_force_internal_Z")
+            else:
+                velZ = self.getConfig("max_jump_force_internal_Z")
+        #TODO: This portion can be shared END
+
+
+    def land(self):
+        """Reset velocities of the characters physic node"""
+        #self.actorNode.getPhysicsObject().setVelocity(0,0,0)
+        pass
+
+    def setActivePlatform(self, platform):
+        return
+        self.active_platform = platform
+
+    def getActivePlatform(self):
+        return None
+        return self.active_platform

@@ -27,6 +27,7 @@ from panda3d.bullet import (
     BulletWorld,
     BulletDebugNode,
     BulletPlaneShape,
+    BulletBoxShape,
     BulletRigidBodyNode,
     BulletGhostNode,
     BulletTriangleMesh,
@@ -68,6 +69,7 @@ fullscreen #f
 #win-size 1920 1080
 win-size 1080 720
 #win-size 840 720
+frame-rate-meter-milliseconds #t
 """)
 
 class Main(ShowBase):
@@ -145,6 +147,32 @@ class Main(ShowBase):
                 elif isinstance(bodyNP.node(), BulletGhostNode):
                     self.world.attachGhost(bodyNP.node())
 
+
+            # Intangible blocks (as used for example for collectible or event spheres)
+            self.moveThroughBoxes = render.attachNewNode(BulletGhostNode("Ghosts"))
+            self.moveThroughBoxes.setPos(0, 0, 1)
+            box = BulletBoxShape((1, 1, 1))
+            self.moveThroughBoxes.node().addShape(box)
+            # should only collide with the event sphere of the character
+            self.moveThroughBoxes.node().setIntoCollideMask(BitMask32(0x80))  # 1000 0000
+            self.world.attachGhost(self.moveThroughBoxes.node())
+
+
+
+            # Intangible blocks (as used for example for collectible or event spheres)
+            self.collideBox = render.attachNewNode(BulletRigidBodyNode("Ghosts"))
+            self.collideBox.setPos(0, 2.5, 1)
+            box = BulletBoxShape((1, 1, 1))
+            self.collideBox.node().addShape(box)
+            # should only collide with the event sphere of the character
+            #self.collideBox.node().setIntoCollideMask(BitMask32(0x80))  # 1000 0000
+            self.world.attachRigidBody(self.collideBox.node())
+
+
+            self.accept("CharacterCollisions-in-Ghosts", print, ["ENTER"])
+            self.accept("CharacterCollisions-out-Ghosts", print, ["EXIT"])
+
+
             # show the debug geometry for bullet collisions
             self.debugactive = True
             debugNode = BulletDebugNode("Debug")
@@ -152,8 +180,8 @@ class Main(ShowBase):
             debugNode.showConstraints(True)
             debugNode.showBoundingBoxes(False)
             debugNode.showNormals(True)
-            debugNP = render.attachNewNode(debugNode)
-            debugNP.show()
+            self.debugNP = render.attachNewNode(debugNode)
+            self.debugNP.show()
 
             self.world.setDebugNode(debugNode)
             self.__taskName = "task_physicsUpdater_Bullet"
@@ -247,6 +275,7 @@ class Main(ShowBase):
             # placement, we need to shift the character up by half its
             # height.
             startpos.setZ(startpos.getZ() + self.playerController.getConfig("player_height")/2.0)
+            startpos = (0,0,3)
         self.playerController.setStartPos(startpos)
         self.playerController.setStartHpr(self.level.find("**/StartPos").getHpr())
 
@@ -353,10 +382,16 @@ class Main(ShowBase):
         #self.osd.add("MY MAP:", str(self.playerController.gamepad.deviceMap["sprint"]))
         #self.osd.add("BUTTON STATE 6:", str(gamepads[0].get_button(6).state))
         self.osd.add("stamina", "{:0.2f}".format(self.playerController.stamina))
-        self.osd.add("velocity", "{X:0.4f}/{Y:0.4f}/{Z:0.4f}".format(
-            X=self.playerController.actorNode.getPhysicsObject().getVelocity().getX(),
-            Y=self.playerController.actorNode.getPhysicsObject().getVelocity().getY(),
-            Z=self.playerController.actorNode.getPhysicsObject().getVelocity().getZ()))
+        if USEINTERNAL:
+            self.osd.add("velocity", "{X:0.4f}/{Y:0.4f}/{Z:0.4f}".format(
+                X=self.playerController.actorNode.getPhysicsObject().getVelocity().getX(),
+                Y=self.playerController.actorNode.getPhysicsObject().getVelocity().getY(),
+                Z=self.playerController.actorNode.getPhysicsObject().getVelocity().getZ()))
+        elif USEBULLET:
+            self.osd.add("velocity", "{X:0.4f}/{Y:0.4f}/{Z:0.4f}".format(
+                X=self.playerController.charCollisions.getLinearVelocity().getX(),
+                Y=self.playerController.charCollisions.getLinearVelocity().getY(),
+                Z=self.playerController.charCollisions.getLinearVelocity().getZ()))
         if taskMgr.hasTaskNamed(self.playerController.getConfig("idle_to_pause_task_name")):
             pause_task = taskMgr.getTasksNamed(self.playerController.getConfig("idle_to_pause_task_name"))[0]
             self.osd.add("pause in", "{:0.0f}".format(-pause_task.time))
