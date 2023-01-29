@@ -89,6 +89,10 @@ class CameraFirstPerson:
         """This function will check the min and max distance of the camera to
         the defined model and will correct the position if the cam is to close
         or to far away"""
+
+        if task.frame % 3:
+            yield task.cont
+
         cam_rotation = Vec3()
         dt = globalClock.getDt()
 

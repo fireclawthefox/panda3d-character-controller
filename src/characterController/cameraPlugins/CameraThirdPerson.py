@@ -89,9 +89,16 @@ class CameraThirdPerson:
         the defined model and will correct the position if the cam is to close
         or to far away"""
 
+        #if task.frame % 3:
+        #    yield task.cont
+
         #TODO: Change everything to use the newCamPos and at the end set the camera pos accordingly!
         #newCamPos = NodePath()
         #newCamPos.setPos(camera.getPos())
+
+        self.core.setConfig("win_width_half", base.win.getXSize() // 2)
+        self.core.setConfig("win_height_half", base.win.getYSize() // 2)
+
         if self.external_cam_pos_request is not None:
             #newCamPos.setPos(self.external_cam_pos_request)
             camera.setPos(self.external_cam_pos_request)

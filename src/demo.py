@@ -70,6 +70,8 @@ fullscreen #f
 win-size 1080 720
 #win-size 840 720
 frame-rate-meter-milliseconds #t
+
+#side-by-side-stereo 1
 """)
 
 class Main(ShowBase):
@@ -103,6 +105,7 @@ class Main(ShowBase):
         #
         self.level = loader.loadModel("../data/level/level")
         self.level.reparentTo(render)
+        #self.level.subdivideCollisions(4)
         #
         # Lights
         #
